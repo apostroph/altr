@@ -162,7 +162,7 @@ void simpleTrackingModule::thresholdF(Mat src, Mat &dst){
 	
 	//If the object size is too small, the contour is erased
 	for(vector<vector<Point> >::iterator it = contours.begin(); it != contours.end();){
-		if(it->size() < (30/pow(SUB,2)) || it->size() > 500){
+		if(it->size() < (30/pow(SUB,2))){
 		      it = contours.erase(it);
 		}else{
 		      ++it;
