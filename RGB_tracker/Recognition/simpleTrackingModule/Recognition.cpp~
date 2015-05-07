@@ -1,0 +1,139 @@
+/* 
+ * Copyright (C): None
+ * Authors: Jimmy Baraglia
+ * Public License for more details
+*/
+
+#include "Recognition.h"
+
+Recognition::Recognition(ResourceFinder &rf)
+{
+}
+
+Recognition::~Recognition()
+{
+}
+
+/* 
+ * Configure method. Receive a previously initialized
+ * resource finder object. Use it to configure your module.
+ * If you are migrating from the old Module, this is the 
+ * equivalent of the "open" method.
+ */
+
+bool Recognition::configure(yarp::os::ResourceFinder &rf) {    
+    
+    bool    bEveryThingisGood = true;
+
+   //init the network
+   //Network::init();
+
+    moduleName            = rf.check("name", 
+                           Value("Recognition"), 
+                           "module name (string)").asString();
+        /*
+    * before continuing, set the module name before getting any other parameters, 
+    * specifically the port names which are dependent on the module name
+    */
+    setName(moduleName.c_str());
+
+    // Open handler port
+    imagePortName = "/";
+    imagePortName += getName() + "/rpc";         // use getName() rather than a literal 
+
+    if (!imagePort.open(imagePortName.c_str())) {           
+        cout << getName() << ": Unable to open port " << imagePortName << endl;  
+        bEveryThingisGood = false;
+    }
+
+
+    //Image configuration
+	//cap = cvCaptureFromCAM( CV_CAP_ANY )	
+
+        namedWindow("Control", CV_WINDOW_AUTOSIZE); //create a window called "Control"
+
+	iLowH = 0;
+	iHighH = 179;
+	iLowS = 0; 
+	iHighS = 255;
+	iLowV = 0;
+	iHighV = 255;
+	 //Create trackbars in "Control" window
+	cvCreateTrackbar("LowH", "Control", &iLowH, 179); //Hue (0 - 179)
+	cvCreateTrackbar("HighH", "Control", &iHighH, 179);
+
+	cvCreateTrackbar("LowS", "Control", &iLowS, 255); //Saturation (0 - 255)
+	cvCreateTrackbar("HighS", "Control", &iHighS, 255);
+
+	cvCreateTrackbar("LowV", "Control", &iLowV, 255); //Value (0 - 255)
+	cvCreateTrackbar("HighV", "Control", &iHighV, 255);
+
+    return bEveryThingisGood ;     
+}
+
+bool Recognition::interruptModule() {
+    return true;
+}
+
+bool Recognition::close() {
+
+    return true;
+}
+
+bool Recognition::respond(const Bottle& command, Bottle& reply) {
+    
+   return true;
+}
+
+/* Called periodically every getPeriod() seconds */
+bool Recognition::updateModule() {
+
+    imgY = imagePort.read();//Wait for an image on the imagePort port
+    IplImage* imgI = cvCreateImage(cvSize(imgY->width(),imgY->height()),IPL_DEPTH_8U, 3 ); //Create an IplImage*
+
+    cvCvtColor((IplImage*)imgY->getIplImage(), imgI, CV_RGB2BGR); //Convert the yarp image into an IplImage*
+
+    Mat imgM = cv::cvarrToMat(imgI); //Convert the IplImage* into an opencv Mat
+    getCenterOfColoredObject(0, imgM); //Get the center point of the biggest colored object
+
+    cvWaitKey(1); //Used here to allow the display of the picture
+    cvReleaseImage(&imgI); //Release the IplImage pointer
+   // delete(imgY);
+    return true;
+}
+
+double Recognition::getPeriod() {
+    /* module periodicity (seconds), called implicitly by myModule */    
+    return 0.1;
+}
+
+//Image processing methods from here
+
+
+Point Recognition::getCenterOfColoredObject(int color, Mat imgOriginal){
+
+	Mat imgHSV;
+
+	//IplImage * imgOriginal;
+	//IplImage * imgHSV = cvCreateImage(cvSize(img->width, img->height), 8, 3);
+
+	cvtColor(imgOriginal, imgHSV, cv::COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
+
+	Mat imgThresholded;
+
+	inRange(imgHSV, Scalar(iLowH, iLowS, iLowV), Scalar(iHighH, iHighS, iHighV), imgThresholded); //Threshold the image
+	imshow("Thresholded Image", imgThresholded); //show the thresholded image
+	      
+	//morphological opening (remove small objects from the foreground)
+	erode(imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
+	dilate( imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) ); 
+
+	//morphological closing (fill small holes in the foreground)
+	dilate( imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) ); 
+	erode(imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
+
+
+	imshow("Original", imgOriginal); //show the original image
+}
+
+

@@ -1,0 +1,91 @@
+/* 
+ * Copyright (C): None
+ * Authors: Jimmy Baraglia
+ * Public License for more details
+*/
+
+#ifndef _Recognition_H_
+#define _Recognition_H_
+
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <stdio.h>
+
+ #include <ace/config.h>
+#include <yarp/sig/all.h>
+#include <yarp/os/all.h>
+#include <time.h>
+
+#include <iostream>
+#include <iomanip>
+#include <yarp/os/all.h>
+
+#include <opencv2/objdetect/objdetect.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include "opencv2/core/core.hpp"
+#include <opencv/highgui.h>
+#include <opencv/cv.h>
+
+//#include <opencv/cvaux.h>
+//#include <opencv/highgui.h>
+//#include <opencv2/highgui/highgui.hpp>
+//#include "opencv2/imgproc/imgproc.hpp"
+"
+
+using namespace std;
+using namespace cv;
+using namespace yarp::os;
+using namespace yarp::sig;
+using namespace yarp::sig::draw;
+
+
+class Recognition : public RFModule {
+
+public:
+    /** 
+     * document your methods too.
+     */
+    Recognition(ResourceFinder &rf);
+    ~Recognition();
+
+    bool configure(yarp::os::ResourceFinder &rf); // configure all the module parameters and return true if successful
+    bool interruptModule();                       // interrupt, e.g., the ports 
+    bool close();                                 // close and shut down the module
+    bool respond(const yarp::os::Bottle& command, yarp::os::Bottle& reply);
+    double getPeriod(); 
+    bool updateModule();
+
+private:
+    string moduleName;
+
+    ImageOf<PixelRgb> *imgY;
+
+    string imagePortName;
+    string Port4RecogitionName;
+    string PortFromPredictionName;
+
+    BufferedPort<ImageOf<PixelRgb> > imagePort;             // a port to get images from iCub 
+    yarp::os::Port Port4Recognition;        // a port to send recognition
+    yarp::os::Port PortFromPrediction;      // a port to communicate Prediction
+
+    //Private methods for imgProcessing
+    Point getCenterOfColoredObject(int color, Mat img);
+
+    //Private variable for imgProcessing
+    //CvCapture* cap;
+
+    int iLowH;
+    int iHighH;
+    int iLowS; 
+    int iHighS;
+    int iLowV;
+    int iHighV;
+};
+
+
+#endif // __Recognition_H__
+
+//----- end-of-file --- ( next line intentionally left blank ) ------------------
+

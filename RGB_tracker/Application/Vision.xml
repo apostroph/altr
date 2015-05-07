@@ -1,0 +1,19 @@
+<application>
+<name>VISION_module_simulation</name>
+<!-- Vision module -->
+
+  <module>
+    <name>Recognition</name>
+    <node>jimmy-pc</node>
+    <stdio>jimmy-pc</stdio>
+    <tag>Recog</tag>
+  </module>
+
+	<connection>
+	    <from>/icubSim/cam/left</from>
+	    <to>/Recognition/in/left</to>
+	    <protocol>udp</protocol>
+	</connection>
+
+ 
+</application>

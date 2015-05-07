@@ -1,0 +1,40 @@
+<application>
+<name>System</name>
+<!-- System module -->
+
+	<!--<module>
+	 <name>iCub_SIM</name>
+	 <node>localhost</node>
+	 <tag>Simulator</tag>
+	</module>-->
+
+	<module>
+	 <name>simCartesianControl</name>
+	 <parameters></parameters>
+	 <node>jimmy-pc</node>
+	 <tag>simCartesian</tag>
+	</module>
+
+	<module>
+	 <name>iKinCartesianSolver</name>
+	 <parameters>-DOF8 --part right_arm torso --context simCartesianControl</parameters>
+	 <node>jimmy-pc</node>
+	 <tag>cartesianController</tag>
+	</module>
+
+	<module>
+	 <name>iKinCartesianSolver</name>
+	 <parameters>-DOF8 --part left_arm torso --context simCartesianControl</parameters>
+	 <node>jimmy-pc</node>
+	 <tag>cartesianController</tag>
+	</module>
+
+	<module>
+	 <name>iKinGazeCtrl</name>
+	 <parameters>--from configSim.ini</parameters>
+	 <node>jimmy-pc</node>
+	 <tag>gazeCtrl</tag>
+	</module>
+ 
+</application>
+

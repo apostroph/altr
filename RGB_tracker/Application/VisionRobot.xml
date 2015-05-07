@@ -1,0 +1,24 @@
+<application>
+<name>Vision_altr</name>
+<!-- Vision module -->
+
+	<dependencies>
+	  <port>/icub/cartesianControl/head/state:o</port>
+	  <port>/icub/cartesianControl/left_arm/state:o</port>
+	</dependencies>
+   
+	<module>
+	 <name>Recognition</name>
+	 <node>jimmy-pc</node>
+	 <stdio>jimmy-pc</stdio>
+	 <tag>Recog</tag>
+	</module>
+
+   <connection>
+       <from>/icub/camcalib/left/out</from>
+       <to>/Recognition/in/left</to>
+       <protocol>udp</protocol>
+   </connection>
+   
+ 
+</application>
