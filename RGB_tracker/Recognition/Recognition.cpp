@@ -93,7 +93,7 @@ void Recognition::sendInformation(){
 	visionOutBottle.addInt(tracker.getNumberOfActiveTrackedObject());
 	
 	for(int count1 = 0; count1 < tracker.getNumberOfTrackedObject(); count1++){	
-		if(tracker.getBlobState(count1) >= 1){
+		if(tracker.getBlobState(count1) >= 1 && tracker.getTrajectory(count1).size() > 2){
 		      visionOutBottle.addInt(tracker.getPositionOfBlob(count1).x);
 		      visionOutBottle.addInt(tracker.getPositionOfBlob(count1).y);
 		      
