@@ -7,7 +7,7 @@
 #include "simpleTrackingModule.h"
 
 //the size fo the images is divided by this value
-#define SUB 2
+#define SUB 1
 
 //Size of object tracking trajectory window 
 #define sizeTrajectory 10
