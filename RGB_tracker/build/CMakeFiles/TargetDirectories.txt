@@ -1,1 +1,0 @@
-/home/jimmy/yarp_tools/RGB_tracker/build/CMakeFiles/Recognition.dir
