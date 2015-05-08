@@ -36,7 +36,7 @@ int State::update(trackingC *obj1, trackingC *obj2)
 	}
 	
 	strength = 0;
-	for (int count = 0; count < timeWindow.size(); count++) {
+	for (unsigned int count = 0; count < timeWindow.size(); count++) {
 		strength += timeWindow[count];
 	}
 	
@@ -46,7 +46,6 @@ int State::update(trackingC *obj1, trackingC *obj2)
 void State::getRelation()
 {
 	double max = 0;
-	double meanValue = 0;
 	int maxR = -1;
 	relationsVector(0) = gettingCloser();
 	relationsVector(1) = movingAway();
@@ -161,11 +160,9 @@ double State::movingWith()
 {
       cv::Point p1 = t_object1->getPosition();
       cv::Point p2 = t_object2->getPosition();
-      double d1 = sqrt(pow(p1.x-p2.x, 2)+pow(p1.y-p2.y, 2));
       
       cv::Point vp1 = t_object1->getPosition()+t_object1->getVelocity();
       cv::Point vp2 = t_object2->getPosition()+t_object2->getVelocity();
-      double d2 = sqrt(pow(vp1.x-vp2.x, 2)+pow(vp1.y-vp2.y, 2));
             
       double angle1 = atan2(p1.y - vp1.y, p1.x - vp1.x);
       double angle2 = atan2(p2.y - vp2.y, p2.x - vp2.x);

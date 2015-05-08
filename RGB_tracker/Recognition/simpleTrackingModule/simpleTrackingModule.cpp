@@ -142,10 +142,10 @@ void simpleTrackingModule::thresholdF(Mat src, Mat &dst){
 	
 	inRange(noSkin, Scalar(hueL,sL,vL), Scalar(hueH,sH,vH), dst); 
 		
-	medianBlur ( dst, dst, medianBlurV*3+1 );
+// 	medianBlur ( dst, dst, medianBlurV*3+1 );
 	
 	erode(dst, dst, cv :: Mat (), cv :: Point ( - 1 , - 1 ), 3 );
-	dilate(dst, dst, cv :: Mat (), cv :: Point ( - 1 , - 1 ), 3 );
+// 	dilate(dst, dst, cv :: Mat (), cv :: Point ( - 1 , - 1 ), 3 );
 	
 	
 	//Add a black border to the image
@@ -180,6 +180,7 @@ void simpleTrackingModule::thresholdF(Mat src, Mat &dst){
 	//All the shapes are filled in white
 	for(int i = 0; i < contours.size(); i++){		
 		drawContours(dst, contours, i, Scalar(255), -1);
+		drawContours(dst, contours, i, Scalar(0), 3);
 	}
 	
 	//motionFilter(dst, dst);
