@@ -59,6 +59,8 @@ private:
   unordered_map<int, string> relationToString;
   
   bool ICUB;
+  bool ROBOT;
+  bool BALL;
   
   State *bestState;
     
@@ -67,6 +69,11 @@ private:
     
   string portOutName;
   yarp::os::Port portOut; // a port to receive information
+    
+  string portWorldName;
+  BufferedPort<Bottle> portWorld; // a port to receive information
+  double xB, zB;
+  double angleB;
   
   //Video capture class
   VideoCapture capture;
@@ -90,6 +97,7 @@ private:
   void findBestState();
   
   void sendInformation();
+  void moveObject();
   
 };
 
