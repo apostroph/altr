@@ -15,5 +15,11 @@
 	    <protocol>udp</protocol>
 	</connection>
 
+	<connection>
+	    <from>/Recognition/World/Out</from>
+	    <to>/icubSim/world</to>
+	    <protocol>udp</protocol>
+	</connection>
+
  
 </application>

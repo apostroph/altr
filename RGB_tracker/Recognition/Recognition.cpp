@@ -9,7 +9,8 @@
 #include "Recognition.h"
 
 
-Recognition::Recognition(ResourceFinder &rf)
+Recognition::Recognition(ResourceFinder &rf):
+angleB(0)
 {    
     namedWindow("Vision and states", CV_WINDOW_AUTOSIZE+WINDOW_OPENGL);
 	
@@ -44,6 +45,8 @@ bool Recognition::configure(yarp::os::ResourceFinder &rf) {
 	YARP_REGISTER_DEVICES(icubmod);
 	
 	ICUB = rf.find("ICUB").asInt();
+	ROBOT = rf.find("ROBOT").asInt();
+	BALL = rf.find("BALL").asInt();
 	
 	cout<<ICUB<<endl;
 	
@@ -74,13 +77,24 @@ bool Recognition::initPorts(yarp::os::ResourceFinder &rf){
 	    return false;
 	}
 
-	// Open Action
+	// Open OUT
 	portOutName = "/";
 	portOutName += getName() + "/Out";
 
 	if (!portOut.open(portOutName.c_str())) {           
 		cout << getName() << ": Unable to open port " << portOutName << endl;  
 		return false;
+	}
+
+	if(BALL){
+		// Open World
+		portWorldName = "/";
+		portWorldName += getName() + "/World/Out";
+
+		if (!portWorld.open(portWorldName.c_str())) {           
+			cout << getName() << ": Unable to open port " << portWorldName << endl;  
+			return false;
+		}
 	}
 	
 	return true;
@@ -113,6 +127,32 @@ void Recognition::sendInformation(){
 	portOut.write(visionOutBottle);
 }
 
+void Recognition::moveObject(){
+	Bottle& toWorld = portWorld.prepare();
+	
+	angleB += M_PI/50;
+	if(angleB > 2*M_PI)
+		angleB = 0;
+	
+	xB = 0.2*cos(angleB);
+	zB = 1+0.2*sin(angleB);
+	
+	toWorld.clear();
+	
+	toWorld.addString("world");
+		  
+	toWorld.addString("set");
+	toWorld.addString("ssph");
+	
+	toWorld.addInt(1);
+	
+	toWorld.addDouble(xB); //x
+	toWorld.addDouble(zB); //y
+	toWorld.addDouble(1); //z
+	
+	portWorld.write();
+}
+
 /* Called periodically every getPeriod() seconds */
 bool Recognition::updateModule() {
     
@@ -143,6 +183,9 @@ bool Recognition::updateModule() {
 	imshow("Vision and states", newImg);
 	
 	sendInformation();
+	if(BALL){
+		moveObject();
+	}
 	
 	waitKey(1);
 	
@@ -178,7 +221,7 @@ void Recognition::drawObjects(){
 }
 
 void Recognition::drawStates(){
-	for(int count = 0; count < listOfState.size(); count++)
+	for(unsigned int count = 0; count < listOfState.size(); count++)
 	{
 		if(listOfState[count].isMarked()){
 			Scalar color;
@@ -229,7 +272,7 @@ void Recognition::getStateList(){
 				
 				State newState(tracker.getTrackedObject(count1), count1, tracker.getTrackedObject(count2), count2);
 				
-				for(int count3 = 0; count3 < listOfState.size(); count3++)
+				for(unsigned int count3 = 0; count3 < listOfState.size(); count3++)
 				{
 					if(listOfState[count3].isRecognized(count1, count2)){
 						recognizedIndex = count3;
@@ -258,7 +301,7 @@ void Recognition::findBestState(){
 	if(listOfState.size() != 0)
 	{
 		double maxStrength = 0;
-		for(int c = 0; c < listOfState.size(); c++)
+		for(unsigned int c = 0; c < listOfState.size(); c++)
 		{
 			if(listOfState[c].getStrength() > maxStrength)
 			{
@@ -277,7 +320,7 @@ void Recognition::findBestState(){
 }
 
 void Recognition::cleanStateList(){
-	for(int count = 0; count < listOfState.size(); count++)
+	for(unsigned int count = 0; count < listOfState.size(); count++)
 	{
 		if(!listOfState[count].isMarked()){
 			listOfState[count].update();
