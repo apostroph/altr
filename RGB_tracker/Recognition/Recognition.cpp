@@ -130,12 +130,12 @@ void Recognition::sendInformation(){
 void Recognition::moveObject(){
 	Bottle& toWorld = portWorld.prepare();
 	
-	angleB += M_PI/50;
+	angleB += M_PI/30;
 	if(angleB > 2*M_PI)
 		angleB = 0;
 	
-	xB = 0.2*cos(angleB);
-	zB = 1+0.2*sin(angleB);
+	xB = -0.7+1*cos(angleB);
+	zB = 1+0.1*sin(angleB)+(0.01*(rand()%(int)40));
 	
 	toWorld.clear();
 	
@@ -148,7 +148,7 @@ void Recognition::moveObject(){
 	
 	toWorld.addDouble(xB); //x
 	toWorld.addDouble(zB); //y
-	toWorld.addDouble(1); //z
+	toWorld.addDouble(3); //z
 	
 	portWorld.write();
 }
@@ -267,7 +267,7 @@ void Recognition::addObjectAndStateInfo(){
 void Recognition::getStateList(){
 	for(int count1 = 0; count1 < tracker.getNumberOfTrackedObject(); count1++){	
 		for(int count2 = 0; count2 < tracker.getNumberOfTrackedObject(); count2++){
-			if(count1 != count2 && tracker.getBlobState(count1) >= 1 && tracker.getBlobState(count2) >= 1 && tracker.isBlobFound(count1) && tracker.isBlobFound(count2)){
+			if(count1 != count2 && tracker.getBlobState(count1) >= 1 && tracker.getBlobState(count2) >= 1){
 				int recognizedIndex = -1;
 				
 				State newState(tracker.getTrackedObject(count1), count1, tracker.getTrackedObject(count2), count2);

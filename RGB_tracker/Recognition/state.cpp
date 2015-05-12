@@ -110,10 +110,10 @@ double State::gettingCloser()
       double v2 = sqrt(pow(vp2.x-p2.x,2)+pow(vp2.y-p2.y,2));
       
       if(d2 < d1 && ((d1-d2) > 5) && v1 >= v2){
-	
 	    double distG = gaussian(d2, 0., 20.)/gaussian(0., 0., 20.);
 	    double angle2 = atan2(p1.y - vp1.y, p1.x - vp1.x);
-	    return distG*gaussian(abs(angle1-angle2), 0., M_PI/4.)/gaussian(0, 0., M_PI/4.);
+	    
+	    return gaussian(abs(angle1-angle2), 0., M_PI/4.)/gaussian(0, 0., M_PI/4.);
       }else{
 	    return 0;
       }
