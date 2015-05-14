@@ -61,6 +61,8 @@ private:
   bool ICUB;
   bool ROBOT;
   bool BALL;
+  bool POSITION;
+  bool COLOR;
   
   State *bestState;
     

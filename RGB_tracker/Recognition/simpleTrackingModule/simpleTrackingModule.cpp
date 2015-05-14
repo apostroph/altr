@@ -142,10 +142,10 @@ void simpleTrackingModule::thresholdF(Mat src, Mat &dst){
 	
 	inRange(noSkin, Scalar(hueL,sL,vL), Scalar(hueH,sH,vH), dst); 
 		
-// 	medianBlur ( dst, dst, medianBlurV*3+1 );
+ 	medianBlur ( dst, dst, medianBlurV*3+1 );
 	
-	erode(dst, dst, cv :: Mat (), cv :: Point ( - 1 , - 1 ), 3 );
-// 	dilate(dst, dst, cv :: Mat (), cv :: Point ( - 1 , - 1 ), 3 );
+	erode(dst, dst, cv :: Mat (), cv :: Point ( - 1 , - 1 ), 5 );
+ 	dilate(dst, dst, cv :: Mat (), cv :: Point ( - 1 , - 1 ), 3 );
 	
 	
 	//Add a black border to the image

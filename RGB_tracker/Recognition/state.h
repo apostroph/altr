@@ -38,6 +38,7 @@ public:
     int getID1(){return s_object1;}
     int getID2(){return s_object2;}
     double getStrength(){ return strength;}
+    double getRValue(int index){ return relationsVector(index);}
     int getRelationValue(){return relation;}
     
     int getSizeData(){return timeWindow.size();}

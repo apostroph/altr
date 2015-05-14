@@ -47,6 +47,8 @@ bool Recognition::configure(yarp::os::ResourceFinder &rf) {
 	ICUB = rf.find("ICUB").asInt();
 	ROBOT = rf.find("ROBOT").asInt();
 	BALL = rf.find("BALL").asInt();
+	POSITION = rf.find("POS").asInt();
+	COLOR = rf.find("COLOR").asInt();
 	
 	cout<<ICUB<<endl;
 	
@@ -102,29 +104,35 @@ bool Recognition::initPorts(yarp::os::ResourceFinder &rf){
 
 void Recognition::sendInformation(){
 	Bottle visionOutBottle;	
-	visionOutBottle.addString("Objects");
 	
-	visionOutBottle.addInt(tracker.getNumberOfActiveTrackedObject());
 	
 	for(int count1 = 0; count1 < tracker.getNumberOfTrackedObject(); count1++){	
 		if(tracker.getBlobState(count1) >= 1 && tracker.getTrajectory(count1).size() > 2){
-		      visionOutBottle.addInt(tracker.getPositionOfBlob(count1).x);
-		      visionOutBottle.addInt(tracker.getPositionOfBlob(count1).y);
-		      
-		      visionOutBottle.addInt(tracker.getTrajectory(count1)[tracker.getTrajectory(count1).size()-2].x);
-		      visionOutBottle.addInt(tracker.getTrajectory(count1)[tracker.getTrajectory(count1).size()-2].y);
 		}
 	}
 	
 	if(bestState != NULL){
-		visionOutBottle.addString("State");
-		visionOutBottle.addInt(bestState->getID1());
-		visionOutBottle.addInt(bestState->getID2());
-		visionOutBottle.addInt(bestState->getRelationValue());
-		visionOutBottle.addDouble(bestState->getStrength());
+		if(POSITION){
+		      visionOutBottle.addInt(tracker.getPositionOfBlob(bestState->getID1()).x);
+		      visionOutBottle.addInt(tracker.getPositionOfBlob(bestState->getID1()).y);
+		      visionOutBottle.addInt(tracker.getTrajectory(bestState->getID1())[tracker.getTrajectory(bestState->getID1()).size()-2].x);
+		      visionOutBottle.addInt(tracker.getTrajectory(bestState->getID1())[tracker.getTrajectory(bestState->getID1()).size()-2].y);
+		      
+		      visionOutBottle.addInt(tracker.getPositionOfBlob(bestState->getID2()).x);
+		      visionOutBottle.addInt(tracker.getPositionOfBlob(bestState->getID2()).y);
+		      visionOutBottle.addInt(tracker.getTrajectory(bestState->getID2())[tracker.getTrajectory(bestState->getID2()).size()-2].x);
+		      visionOutBottle.addInt(tracker.getTrajectory(bestState->getID2())[tracker.getTrajectory(bestState->getID2()).size()-2].y);
+		}else if(COLOR){
+		  
+		}
+	  
+		visionOutBottle.addDouble(bestState->getRValue(0));
+		visionOutBottle.addDouble(bestState->getRValue(1));
+		visionOutBottle.addDouble(bestState->getRValue(2));
+		
+		portOut.write(visionOutBottle);
 	}
 	
-	portOut.write(visionOutBottle);
 }
 
 void Recognition::moveObject(){

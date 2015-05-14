@@ -105,6 +105,7 @@ bool trackingC::update(Point position, double color, double size, double height)
 		    //The position is updated
 		    this->position.x = position.x;
 		    this->position.y = position.y;
+		    
 		    approxSize = size;
 		    
 		    //3D values are updated

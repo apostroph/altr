@@ -28,6 +28,8 @@ int State::update(trackingC *obj1, trackingC *obj2)
 {
 	if (marked && obj1 !=  NULL && obj2 !=  NULL) 
 	{
+		t_object1 = obj1;
+		t_object2 = obj2;
 		getRelation();
 	}
 	else if(!marked && timeWindow.size() > 0)
@@ -50,10 +52,10 @@ void State::getRelation()
 	relationsVector(0) = gettingCloser();
 	relationsVector(1) = movingAway();
 	relationsVector(2) = movingWith();	
-	relationsVector(3) = closeTo();
+	//relationsVector(3) = closeTo();
 	
 	
-	for(int count = 0; count < 4; count++)
+	for(int count = 0; count < 3; count++)
 	{
 		  if(relationsVector(count) > max && relationsVector(count) < 2 && relationsVector(count) >= MIN_R_VALUE)
 		  {
@@ -110,7 +112,6 @@ double State::gettingCloser()
       double v2 = sqrt(pow(vp2.x-p2.x,2)+pow(vp2.y-p2.y,2));
       
       if(d2 < d1 && ((d1-d2) > 5) && v1 >= v2){
-	    double distG = gaussian(d2, 0., 20.)/gaussian(0., 0., 20.);
 	    double angle2 = atan2(p1.y - vp1.y, p1.x - vp1.x);
 	    
 	    return gaussian(abs(angle1-angle2), 0., M_PI/4.)/gaussian(0, 0., M_PI/4.);
@@ -123,6 +124,7 @@ double State::movingAway()
 {
       cv::Point p1 = t_object1->getPosition();
       cv::Point p2 = t_object2->getPosition();
+      
       double d1 = sqrt(pow(p1.x-p2.x, 2)+pow(p1.y-p2.y, 2));
       
       double angle1 = atan2(p1.y - p2.y, p1.x - p2.x);
@@ -133,11 +135,12 @@ double State::movingAway()
       
       double v1 = sqrt(pow(vp1.x-p1.x,2)+pow(vp1.y-p1.y,2));
       double v2 = sqrt(pow(vp2.x-p2.x,2)+pow(vp2.y-p2.y,2));
-                 
-      if(d2 > d1  && ((d2-d1) > 2) && v1 >= v2){
-	    double distG = gaussian(d2, 0., 20.)/gaussian(0., 0., 20.);
+               
+      
+      if(d2 > d1  && ((d2-d1) > 5) && v1 >= v2){
 	    double angle2 = atan2(p1.y - vp1.y, p1.x - vp1.x);
-	    return distG*gaussian(M_PI-abs(angle1-angle2), 0., M_PI/4.)/gaussian(0, 0., M_PI/4.);//*(1./gaussian(0., 0., 3.))*(gaussian(0., 0., 3.)-gaussian((d2-d1), 0., 3.));
+	    
+	    return gaussian(M_PI-abs(angle1-angle2), 0., M_PI/4.)/gaussian(0, 0., M_PI/4.);
       }else{
 	    return 0;
       }
