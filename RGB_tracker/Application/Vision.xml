@@ -16,8 +16,14 @@
 	</connection>
 
 	<connection>
-	    <from>/Recognition/World/Out</from>
+	    <from>/Recognition/world/out</from>
 	    <to>/icubSim/world</to>
+	    <protocol>udp</protocol>
+	</connection>
+
+	<connection>
+	    <from>/Recognition/out</from>
+	    <to>/Predictor/in</to>
 	    <protocol>udp</protocol>
 	</connection>
 

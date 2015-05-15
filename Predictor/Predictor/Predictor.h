@@ -4,23 +4,27 @@
  * Public License for more details
 */
 
-#ifndef _Recognition_H_
-#define _Recognition_H_
+#ifndef _Predictor_H_
+#define _Predictor_H_
 
+#include <iostream>
+#include <iomanip>
+#include <cmath>
 #include <string>
+#include <ctime>
+#include <cstdlib>
+
+#include <eigen3/Eigen/Dense>
 
 #include <yarp/os/all.h>
 #include <yarp/sig/all.h>
 #include <yarp/dev/all.h>
-#include <time.h>
 
 using namespace std;
+using namespace Eigen;
 using namespace yarp::os;
 using namespace yarp::sig;
 using namespace yarp::dev;
-
-YARP_DECLARE_DEVICES(icubmod);
-
 
 class Predictor : public RFModule {
 
@@ -38,19 +42,68 @@ public:
     double getPeriod(); 
     bool updateModule();
     
-    bool initPorts(yarp::os::ResourceFinder &rf);
-    
 private:
   string moduleName;
   
   string portOutName;
   yarp::os::Port portOut; // a port to receive information
- 
   
-  void findBestState();
+  string portInName;
+  yarp::os::Port portIn; // a port to receive information
   
-  void sendInformation();
-  void moveObject();
+  bool initPorts(yarp::os::ResourceFinder &rf);
+  
+  int maxTests;// = 10000;
+  int maxSamples;// = 4;
+
+  int inputNeurons;// = 6;
+  int hiddenNeurons;// = 3;
+  int outputNeurons;// = 6;
+  int contextNeurons;// = 3;
+
+  double learnRate;// = 0.2;    //Rho.
+  int trainingReps;// = 2000;
+  
+  long long iterations;
+  
+  VectorXd beVector;//[inputNeurons] = {1.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+                                     //  0    1    2    3    4    5
+  MatrixXd sampleInput;//[3][inputNeurons] = {{0.0, 0.0, 0.0, 1.0, 0.0, 0.0},
+					//{0.0, 0.0, 0.0, 0.0, 0.0, 1.0},
+					//{0.0, 0.0, 1.0, 0.0, 0.0, 0.0}};
+
+  //Input to Hidden weights (with biases).
+  MatrixXd wih;//[inputNeurons + 1][hiddenNeurons];
+
+  //Context to Hidden weights (with biases).
+  MatrixXd wch;//[contextNeurons + 1][hiddenNeurons];
+
+  //Hidden to Output weights (with biases).
+  MatrixXd who;//[hiddenNeurons + 1][outputNeurons];
+
+  //Hidden to Context weights (no biases).
+  MatrixXd whc;//[outputNeurons + 1][contextNeurons];
+  
+    //Activations.
+  VectorXd inputs;//[inputNeurons];
+  VectorXd hidden;//[hiddenNeurons];
+  VectorXd target;//[outputNeurons];
+  VectorXd actual;//[outputNeurons];
+  VectorXd context;//[contextNeurons];
+
+  //Unit errors.
+  VectorXd erro;//[outputNeurons];
+  VectorXd errh;//[hiddenNeurons];
+  
+  void ElmanNetwork();
+  void testNetwork();
+  void feedForward();
+  void backPropagate();
+  void assignRandomWeights();
+  int getRandomNumber();
+  double sigmoid(double val);
+  double sigmoidDerivative(double val);
   
 };
 

@@ -49,6 +49,7 @@ bool Recognition::configure(yarp::os::ResourceFinder &rf) {
 	BALL = rf.find("BALL").asInt();
 	POSITION = rf.find("POS").asInt();
 	COLOR = rf.find("COLOR").asInt();
+	learning = rf.find("LEARNING").asInt();
 	
 	cout<<ICUB<<endl;
 	
@@ -81,7 +82,7 @@ bool Recognition::initPorts(yarp::os::ResourceFinder &rf){
 
 	// Open OUT
 	portOutName = "/";
-	portOutName += getName() + "/Out";
+	portOutName += getName() + "/out";
 
 	if (!portOut.open(portOutName.c_str())) {           
 		cout << getName() << ": Unable to open port " << portOutName << endl;  
@@ -91,7 +92,7 @@ bool Recognition::initPorts(yarp::os::ResourceFinder &rf){
 	if(BALL){
 		// Open World
 		portWorldName = "/";
-		portWorldName += getName() + "/World/Out";
+		portWorldName += getName() + "/world/out";
 
 		if (!portWorld.open(portWorldName.c_str())) {           
 			cout << getName() << ": Unable to open port " << portWorldName << endl;  
@@ -105,13 +106,19 @@ bool Recognition::initPorts(yarp::os::ResourceFinder &rf){
 void Recognition::sendInformation(){
 	Bottle visionOutBottle;	
 	
+	if(learning){
+		visionOutBottle.addString("learning");
+	}else{
+		visionOutBottle.addString("testing");
+	}
+	
 	
 	for(int count1 = 0; count1 < tracker.getNumberOfTrackedObject(); count1++){	
 		if(tracker.getBlobState(count1) >= 1 && tracker.getTrajectory(count1).size() > 2){
 		}
 	}
 	
-	if(bestState != NULL){
+	if(bestState != NULL && bestState->getStrength() > 0.1){
 		if(POSITION){
 		      visionOutBottle.addInt(tracker.getPositionOfBlob(bestState->getID1()).x);
 		      visionOutBottle.addInt(tracker.getPositionOfBlob(bestState->getID1()).y);
@@ -142,8 +149,8 @@ void Recognition::moveObject(){
 	if(angleB > 2*M_PI)
 		angleB = 0;
 	
-	xB = -0.7+1*cos(angleB);
-	zB = 1+0.1*sin(angleB)+(0.01*(rand()%(int)40));
+	xB = -0.5+0.5*cos(angleB);
+	zB = 1+0.1*sin(angleB);
 	
 	toWorld.clear();
 	
@@ -156,7 +163,7 @@ void Recognition::moveObject(){
 	
 	toWorld.addDouble(xB); //x
 	toWorld.addDouble(zB); //y
-	toWorld.addDouble(3); //z
+	toWorld.addDouble(2); //z
 	
 	portWorld.write();
 }

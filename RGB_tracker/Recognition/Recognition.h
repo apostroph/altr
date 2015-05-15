@@ -64,6 +64,8 @@ private:
   bool POSITION;
   bool COLOR;
   
+  bool learning;
+  
   State *bestState;
     
   string camLeftName;
