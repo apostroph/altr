@@ -10,7 +10,7 @@
 
 
 Recognition::Recognition(ResourceFinder &rf):
-angleB(0)
+angleB(0), heightBall(0)
 {    
     namedWindow("Vision and states", CV_WINDOW_AUTOSIZE+WINDOW_OPENGL);
 	
@@ -48,6 +48,7 @@ bool Recognition::configure(yarp::os::ResourceFinder &rf) {
 	ROBOT = rf.find("ROBOT").asInt();
 	BALL = rf.find("BALL").asInt();
 	POSITION = rf.find("POS").asInt();
+	MOTOR = rf.find("MOTOR").asInt();
 	COLOR = rf.find("COLOR").asInt();
 	learning = rf.find("LEARNING").asInt();
 	
@@ -112,13 +113,22 @@ void Recognition::sendInformation(){
 		visionOutBottle.addString("testing");
 	}
 	
-	
-	for(int count1 = 0; count1 < tracker.getNumberOfTrackedObject(); count1++){	
-		if(tracker.getBlobState(count1) >= 1 && tracker.getTrajectory(count1).size() > 2){
-		}
-	}
-	
 	if(bestState != NULL && bestState->getStrength() > 0.1){
+	  
+		for(int i = 0; i < 3; i++){
+			if(i == bestState->getRelationValue())
+				visionOutBottle.addDouble((int)(0.5+bestState->getRValue(i)));
+			else
+				visionOutBottle.addDouble(0);
+		}
+		
+		if(MOTOR){
+			visionOutBottle.addInt(1);
+			visionOutBottle.addInt(0);
+		}else{
+			visionOutBottle.addInt(0);
+			visionOutBottle.addInt(0);
+		}
 		if(POSITION){
 		      visionOutBottle.addInt(tracker.getPositionOfBlob(bestState->getID1()).x);
 		      visionOutBottle.addInt(tracker.getPositionOfBlob(bestState->getID1()).y);
@@ -129,15 +139,28 @@ void Recognition::sendInformation(){
 		      visionOutBottle.addInt(tracker.getPositionOfBlob(bestState->getID2()).y);
 		      visionOutBottle.addInt(tracker.getTrajectory(bestState->getID2())[tracker.getTrajectory(bestState->getID2()).size()-2].x);
 		      visionOutBottle.addInt(tracker.getTrajectory(bestState->getID2())[tracker.getTrajectory(bestState->getID2()).size()-2].y);
-		}else if(COLOR){
-		  
 		}
-	  
-		visionOutBottle.addDouble(bestState->getRValue(0));
-		visionOutBottle.addDouble(bestState->getRValue(1));
-		visionOutBottle.addDouble(bestState->getRValue(2));
+		if(COLOR){
+		      visionOutBottle.addInt((int)(0.5+(tracker.getRGBColorOfBlob(bestState->getID1())[0]/255.)));
+		      visionOutBottle.addInt((int)(0.5+(tracker.getRGBColorOfBlob(bestState->getID1())[1]/255.)));
+		      visionOutBottle.addInt((int)(0.5+(tracker.getRGBColorOfBlob(bestState->getID1())[2]/255.)));
+		      
+		      visionOutBottle.addInt((int)(0.5+(tracker.getRGBColorOfBlob(bestState->getID2())[0]/255.)));
+		      visionOutBottle.addInt((int)(0.5+(tracker.getRGBColorOfBlob(bestState->getID2())[1]/255.)));
+		      visionOutBottle.addInt((int)(0.5+(tracker.getRGBColorOfBlob(bestState->getID2())[2]/255.)));
+		}
 		
-		portOut.write(visionOutBottle);
+		uint32_t distance = bestState->getDistance(); 
+		distance = distance/43; //640 to 15 (4 bits)
+		visionOutBottle.addInt(distance & (1 << 0) ? 1 : 0);
+		visionOutBottle.addInt(distance & (1 << 1) ? 1 : 0);
+		visionOutBottle.addInt(distance & (1 << 2) ? 1 : 0);
+		visionOutBottle.addInt(distance & (1 << 3) ? 1 : 0);
+		      
+		if(bestState->getRValue(0) != 0 || bestState->getRValue(1) != 0 || bestState->getRValue(2) != 0){
+			cout<<visionOutBottle.toString()<<endl;
+			portOut.write(visionOutBottle);
+		}
 	}
 	
 }
@@ -145,12 +168,18 @@ void Recognition::sendInformation(){
 void Recognition::moveObject(){
 	Bottle& toWorld = portWorld.prepare();
 	
-	angleB += M_PI/30;
+	angleB += (double)(rand()%150)/1000.;
 	if(angleB > 2*M_PI)
 		angleB = 0;
 	
+	heightBall += 0.005-(double)(rand()%100)/10000;
+	if(heightBall > 0.5)
+		heightBall = 0.5;
+	else if(heightBall < -0.5)
+		heightBall = -0.5;
+	
 	xB = -0.5+0.5*cos(angleB);
-	zB = 1+0.1*sin(angleB);
+	zB = 1+heightBall+0.1*sin(angleB);
 	
 	toWorld.clear();
 	

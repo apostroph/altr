@@ -62,9 +62,11 @@ private:
   bool ROBOT;
   bool BALL;
   bool POSITION;
+  bool MOTOR;
   bool COLOR;
   
   bool learning;
+  double heightBall;
   
   State *bestState;
     

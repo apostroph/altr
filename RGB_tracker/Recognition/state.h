@@ -41,6 +41,8 @@ public:
     double getRValue(int index){ return relationsVector(index);}
     int getRelationValue(){return relation;}
     
+    double getDistance();
+    
     int getSizeData(){return timeWindow.size();}
     
     bool isRecognized(int id1,  int id2);

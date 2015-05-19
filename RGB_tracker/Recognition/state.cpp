@@ -96,6 +96,10 @@ void State::getRelation()
 	}
 }
 
+double State::getDistance(){
+	return sqrt( pow(t_object1->getPosition().x-t_object2->getPosition().x, 2) + pow(t_object1->getPosition().y-t_object2->getPosition().y, 2) );   
+}
+
 double State::gettingCloser()
 {
       cv::Point p1 = t_object1->getPosition();

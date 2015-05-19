@@ -10,8 +10,8 @@
 
 
 Predictor::Predictor(ResourceFinder &rf):
-maxTests(10000), maxSamples(4), inputNeurons(3),
-hiddenNeurons(10), outputNeurons(3), contextNeurons(10),
+maxTests(10000), maxSamples(4), inputNeurons(15),
+hiddenNeurons(10), outputNeurons(15), contextNeurons(10),
 learnRate(0.2), trainingReps(2000), iterations(0)
 {    
 	if(rf.find("MAXTESTS").asInt() != 0)
@@ -35,11 +35,13 @@ learnRate(0.2), trainingReps(2000), iterations(0)
 		trainingReps = rf.find("TRAINSTEP").asInt();// = 2000;
 	
 	beVector = VectorXd(inputNeurons);//[inputNeurons] = {1.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-	beVector << 0.0, 0.0, 0.0;
-		    //  0    1    2    3    4    5
 	sampleInput = MatrixXd(2, inputNeurons);
-	sampleInput <<  0.0, 0.0, 0.0,
-			0.0, 0.0, 0.0;
+	
+	for(int i = 0; i < inputNeurons; i++){
+		beVector(i) = 0;
+		sampleInput(0, i) = 0;
+		sampleInput(1, i) = 0;
+	}
 
 	//Input to Hidden weights (with biases).
 	wih = MatrixXd(inputNeurons+1, hiddenNeurons);;//[inputNeurons + 1][hiddenNeurons];
@@ -86,19 +88,39 @@ bool Predictor::configure(yarp::os::ResourceFinder &rf) {
 	if(rf.find("train").asInt() == 1){
 		for(int i = 0; i < trainingReps/2; i++)
 		{
-			for(int i = 0; i <= (inputNeurons - 1); i++){
-				sampleInput(1, i) = sampleInput(0, i);
-				sampleInput(0, i) = 0;
+			for(int j = 0; j < 4; j++){
+				for(int i = 0; i <= (inputNeurons - 1); i++){
+					sampleInput(1, i) = sampleInput(0, i);
+					sampleInput(0, i) = 0;
+				}
+				sampleInput(0, 0) = 1;
+				
+				sampleInput(0, 3) = j==1;
+				sampleInput(0, 4) = j==2;
+				sampleInput(0, 5) = j==3;
+				
+				sampleInput(0, 6) = 1;
+				sampleInput(0, 7) = 0;
+				sampleInput(0, 8) = 0;
+				ElmanNetwork();
 			}
-			sampleInput(0, 5) = 1;
-			ElmanNetwork();
 			
-			for(int i = 0; i <= (inputNeurons - 1); i++){
-				sampleInput(1, i) = sampleInput(0, i);
-				sampleInput(0, i) = 0;
+			for(int j = 0; j < 4; j++){
+				for(int i = 0; i <= (inputNeurons - 1); i++){
+					sampleInput(1, i) = sampleInput(0, i);
+					sampleInput(0, i) = 0;
+				}
+				sampleInput(0, 1) = 1;
+				
+				sampleInput(0, 3) = j==1;
+				sampleInput(0, 4) = j==2;
+				sampleInput(0, 5) = j==3;
+				
+				sampleInput(0, 6) = 0;
+				sampleInput(0, 7) = 0;
+				sampleInput(0, 8) = 1;
+				ElmanNetwork();
 			}
-			sampleInput(0, 4) = 1;
-			ElmanNetwork();
 		}
 	}
 	
@@ -171,7 +193,17 @@ bool Predictor::respond(const Bottle& command, Bottle& reply) {
 	  
     if(command.get(0).asString() == "learning")
 	  ElmanNetwork();
-    else {
+    else if(command.get(0).asString() == "tloop"){
+      for(int i = 0; i < command.get(inputNeurons+1).asInt(); i++){
+	  testNetwork();
+	  
+	  for(int i = 0; i <= (inputNeurons - 1); i++){
+		sampleInput(1, i) = sampleInput(0, i);
+		sampleInput(0, i) = actual(i);
+	  }
+      }
+    }
+    else{
 	  testNetwork();
     }
       
@@ -179,95 +211,128 @@ bool Predictor::respond(const Bottle& command, Bottle& reply) {
 }
 
 void Predictor::ElmanNetwork(){
-    double err;
-    bool stopLoop = false;
+      double err;
+      bool stopLoop = false;
+      bool sameInput = true;
 
-    //Train the network.
-    
-    if(iterations == 0){
-	for(int i = 0; i <= (inputNeurons - 1); i++){
-	    inputs(i) = beVector(i);
-	} // i
-    } else {
-	for(int i = 0; i <= (inputNeurons - 1); i++){
-	    inputs(i) = sampleInput(0, i);
-	} // i
-    }
+      //Train the network.
+      for(int i = 0; i <= (inputNeurons - 1); i++){
+		if(sampleInput(1, i) != sampleInput(0, i)){
+			sameInput = false;
+			break;
+		}
+      }
+      
+      if(!sameInput){
+		if(iterations == 0){
+		    for(int i = 0; i <= (inputNeurons - 1); i++){
+			inputs(i) = beVector(i);
+		    } // i
+		} else {
+		    for(int i = 0; i <= (inputNeurons - 1); i++){
+			inputs(i) = sampleInput(1, i);
+		    } // i
+		}
 
-    //After the samples are entered into the input units, the sample are
-    //then offset by one and entered into target-output units for
-    //later comparison.
-    /*if(sample == maxSamples - 1){
-	for(int i = 0; i <= (inputNeurons - 1); i++){
-	    target(i) = beVector(i);
-	} // i
-    } else {*/
-    for(int i = 0; i <= (inputNeurons - 1); i++){
-	target(i) = sampleInput(1, i);
-    } // i
-    //}
+		//After the samples are entered into the input units, the sample are
+		//then offset by one and entered into target-output units for
+		//later comparison.
+		/*if(sample == maxSamples - 1){
+		    for(int i = 0; i <= (inputNeurons - 1); i++){
+			target(i) = beVector(i);
+		    } // i
+		} else {*/
+		for(int i = 0; i <= (inputNeurons - 1); i++){
+		    target(i) = sampleInput(0, i);
+		} // i
+		//}
 
-    feedForward();
-    
-    err = 0.0;
-    for(int i = 0; i <= (outputNeurons - 1); i++){ 
-	err += sqrt(abs(target(i) - actual(i)));
-    } // i
-    err = err/(outputNeurons);
-    cout<<err<<endl;
+		feedForward();
+		
+		err = 0.0;
+		for(int i = 0; i <= (outputNeurons - 1); i++){ 
+		    err += sqrt(abs(target(i) - actual(i)));
+		} // i
+		err = err/(outputNeurons);
+		cout<<err<<endl;
 
-    /*if(iterations > trainingReps){
-	stopLoop = true;
-    }*/
-    iterations += 1;
-    
-    backPropagate();
+		/*if(iterations > trainingReps){
+		    stopLoop = true;
+		}*/
+		iterations += 1;
+		
+		backPropagate();
 
-    /*sample += 1;
-    if(sample == maxSamples){
-	sample = 0;
-    }*/
+		/*sample += 1;
+		if(sample == maxSamples){
+		    sample = 0;
+		}*/
 
-//     cout << "Iterations = " << iterations << endl;
+	    //     cout << "Iterations = " << iterations << endl;
+	}
 }
 
 void Predictor::testNetwork(){
-    int index;
-    int randomNumber, predicted;
-    bool stopTest, stopSample, successful;
+	int index;
+	int randomNumber, predicted;
+	bool stopTest, stopSample, successful;
+	bool sameInput = true;
 
-    //Test the network with random input patterns.
-    stopTest = false;
-    //for(int test = 0; test <= maxTests; test++){
-        
-    //Enter Beginning string.
-    for(int i = 0; i <= (inputNeurons - 1); i++){
-	inputs(i) = sampleInput(0, i);
-    } // i
-    cout << "(0) ";
-
-    feedForward();
-
-    predicted = 0;
-    
-
-    for(int i = 0; i <= (inputNeurons-1); i++){
-	cout << actual(i) << " ";
-	if(actual(i) >= 0.3){
-	    //The output unit with the highest value (usually over 0.3)
-	    //is the network's predicted unit that it expects to appear
-	    //in the next input vector.
-	    //For example, if the 3rd output unit has the highest value,
-	    //the network expects the 3rd unit in the next input to
-	    //be 1.0
-	    //If the actual value isn't what it expected, the random
-	    //sequence has failed, and a new test sequence begins.
-	    predicted = i;
+	//Test the network with random input patterns.
+	stopTest = false;
+	//for(int test = 0; test <= maxTests; test++){
+	    
+	for(int i = 0; i <= (inputNeurons - 1); i++){
+	      if(sampleInput(1, i) != sampleInput(0, i)){
+		      sameInput = false;
+		      break;
+	      }
 	}
-    } // i
-    cout << "\n";
+	  
+	if(!sameInput){
+	      //Enter Beginning string.
+	      for(int i = 0; i <= (inputNeurons - 1); i++){
+		  inputs(i) = sampleInput(1, i);
+	      } // i
 
-    cout<<"Predicted output is: "<<predicted<<endl;
+	      //loop to predict step t+i
+	      for(int i = 0; i < 1; i++){
+		      feedForward();
+
+		      predicted = 0;
+		      
+		      cout << "(I)\t";    
+		      for(int i = 0; i <= (inputNeurons - 1); i++){
+			  cout << inputs(i) << "\t";
+		      }
+		      cout<<endl;
+		      
+
+		      cout << "(0)\t";
+		      for(int i = 0; i <= (inputNeurons - 1); i++){
+			  cout << actual(i) << "\t";
+			  if(actual(i) >= 0.3){
+			      //The output unit with the highest value (usually over 0.3)
+			      //is the network's predicted unit that it expects to appear
+			      //in the next input vector.
+			      //For example, if the 3rd output unit has the highest value,
+			      //the network expects the 3rd unit in the next input to
+			      //be 1.0
+			      //If the actual value isn't what it expected, the random
+			      //sequence has failed, and a new test sequence begins.
+			      predicted = i;
+			  }
+		      } // i
+		      cout<<endl;
+		      
+		    //Output becomes input
+		    for(int i = 0; i <= (inputNeurons - 1); i++){
+			inputs(i) = actual(i);
+		    } // i
+
+	      }
+	}
+//     cout<<"Predicted output is: "<<predicted<<endl;
 }
 
 void Predictor::feedForward(){
