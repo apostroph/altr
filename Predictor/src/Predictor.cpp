@@ -34,6 +34,8 @@ learnRate(0.2), trainingReps(2000), iterations(0)
 	if(rf.find("TRAINSTEP").asInt() != 0)
 		trainingReps = rf.find("TRAINSTEP").asInt();// = 2000;
 	
+	FILE = rf.find("FILE").asInt();
+	
 	beVector = VectorXd(inputNeurons);//[inputNeurons] = {1.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 	sampleInput = MatrixXd(2, inputNeurons);
 	
@@ -65,7 +67,11 @@ learnRate(0.2), trainingReps(2000), iterations(0)
 	erro = VectorXd(outputNeurons);//[outputNeurons];
 	errh = VectorXd(hiddenNeurons);//[hiddenNeurons];
 	
-
+	//Initialise the output
+	errO = new std::ofstream("../Predictor/Data/err.txt", std::ofstream::out);
+	mseO = new std::ofstream("../Predictor/Data/MSE.txt", std::ofstream::out);
+	inO = new std::ofstream("../Predictor/Data/in.txt", std::ofstream::out);
+	outO = new std::ofstream("../Predictor/Data/out.txt", std::ofstream::out);
 	
 }
 
@@ -85,7 +91,69 @@ bool Predictor::configure(yarp::os::ResourceFinder &rf) {
 	testNetwork();*/
 	
 	//TEST
-	if(rf.find("train").asInt() == 1){
+	if(FILE){
+		ifstream inFile1;
+		
+		for(int i = 0; i < 1000; i ++){
+			inFile1.open("Data/input.txt");
+			if (inFile1.is_open())
+			{
+				string line;
+				while ( getline (inFile1,line) )
+				{
+					int value;
+					int count = 0;
+					line = line.substr(line.find(" ")+1);
+					while(line.find(" ") != std::string::npos){
+						value = string_to_double(line.substr(0, line.find(" ")+1));
+						line = line.substr(line.find(" ")+1);
+						
+						sampleInput(1, count) = sampleInput(0, count);
+						sampleInput(0, count) = value;	
+						count++;
+					}
+					sampleInput(1, count) = sampleInput(0, count);
+					sampleInput(0, count) = string_to_double(line);	
+			
+					ElmanNetwork();
+					
+				}
+				inFile1.close();
+			}else{
+				cerr<<"Error while opening input file"<<endl;
+			}
+		}
+		
+		ifstream inFile2("Data/input.txt");
+		
+		if (inFile2.is_open())
+		{
+			string line;
+			while ( getline (inFile2,line) )
+			{
+				int value;
+				int count = 1;
+				line = line.substr(line.find(" ")+1);
+				while(line.find(" ") != std::string::npos){
+					value = string_to_double(line.substr(0, line.find(" ")+1));
+					line = line.substr(line.find(" ")+1);
+					
+					sampleInput(1, count) = sampleInput(0, count);
+					sampleInput(0, count) = value;	
+					count++;
+				}
+				sampleInput(0, count) = string_to_double(line);	
+		
+				testNetwork();
+				
+			}
+			inFile2.close();
+		}else{
+			cerr<<"Error while opening input file"<<endl;
+		}
+		
+	}
+	else if(rf.find("TRAIN").asInt() == 1){
 		for(int i = 0; i < trainingReps/2; i++)
 		{
 			for(int j = 0; j < 4; j++){
@@ -165,7 +233,6 @@ bool Predictor::initPorts(yarp::os::ResourceFinder &rf){
 
 /* Called periodically every getPeriod() seconds */
 bool Predictor::updateModule() {
-    
 	
     return true;
 }
@@ -181,6 +248,10 @@ bool Predictor::interruptModule() {
 
 bool Predictor::close() {
 	
+    errO->close();
+    inO->close();
+    outO->close();
+    cout<<"Module closing"<<endl;
     return true;
 }
 
@@ -211,8 +282,7 @@ bool Predictor::respond(const Bottle& command, Bottle& reply) {
 }
 
 void Predictor::ElmanNetwork(){
-      double err;
-      bool stopLoop = false;
+      double err, mse;
       bool sameInput = true;
 
       //Train the network.
@@ -250,15 +320,20 @@ void Predictor::ElmanNetwork(){
 		feedForward();
 		
 		err = 0.0;
+		mse = 0.0;
 		for(int i = 0; i <= (outputNeurons - 1); i++){ 
-		    err += sqrt(abs(target(i) - actual(i)));
+		    err += abs(target(i) - actual(i));
+		    mse += pow(target(i) - actual(i), 2);
 		} // i
-		err = err/(outputNeurons);
-		cout<<err<<endl;
+		err = err/outputNeurons;
+		mse = mse/outputNeurons;
+		*errO<<err<<endl;
+		*mseO<<mse<<endl;
 
 		/*if(iterations > trainingReps){
 		    stopLoop = true;
 		}*/
+		cout<<iterations<<endl;
 		iterations += 1;
 		
 		backPropagate();
@@ -273,13 +348,7 @@ void Predictor::ElmanNetwork(){
 }
 
 void Predictor::testNetwork(){
-	int index;
-	int randomNumber, predicted;
-	bool stopTest, stopSample, successful;
 	bool sameInput = true;
-
-	//Test the network with random input patterns.
-	stopTest = false;
 	//for(int test = 0; test <= maxTests; test++){
 	    
 	for(int i = 0; i <= (inputNeurons - 1); i++){
@@ -298,32 +367,15 @@ void Predictor::testNetwork(){
 	      //loop to predict step t+i
 	      for(int i = 0; i < 1; i++){
 		      feedForward();
-
-		      predicted = 0;
-		      
-		      cout << "(I)\t";    
 		      for(int i = 0; i <= (inputNeurons - 1); i++){
-			  cout << inputs(i) << "\t";
+			  *inO << inputs(i) << "\t";
 		      }
-		      cout<<endl;
+		      *inO << endl;
 		      
-
-		      cout << "(0)\t";
 		      for(int i = 0; i <= (inputNeurons - 1); i++){
-			  cout << actual(i) << "\t";
-			  if(actual(i) >= 0.3){
-			      //The output unit with the highest value (usually over 0.3)
-			      //is the network's predicted unit that it expects to appear
-			      //in the next input vector.
-			      //For example, if the 3rd output unit has the highest value,
-			      //the network expects the 3rd unit in the next input to
-			      //be 1.0
-			      //If the actual value isn't what it expected, the random
-			      //sequence has failed, and a new test sequence begins.
-			      predicted = i;
-			  }
+			  *outO << actual(i) << "\t";
 		      } // i
-		      cout<<endl;
+		      *outO<<endl;
 		      
 		    //Output becomes input
 		    for(int i = 0; i <= (inputNeurons - 1); i++){
@@ -454,6 +506,20 @@ double Predictor::sigmoid(double val){
 double Predictor::sigmoidDerivative(double val){
     return (val * (1.0 - val));
 }
+
+/**
+ * Convert string to double
+ * In: 
+ * const std::string s: string to convert to double
+ * Out: double contained the argument, "nan" if string not a number
+ * */
+double Predictor::string_to_double(const std::string& s){
+   std::istringstream i(s);
+   double x;
+   if (!(i >> x))
+     return std::numeric_limits<double>::quiet_NaN();
+   return x;
+ } 
 
 Predictor::~Predictor(){
   

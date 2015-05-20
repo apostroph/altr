@@ -7,7 +7,8 @@
 #ifndef _Predictor_H_
 #define _Predictor_H_
 
-#include <iostream>
+#include<iostream>
+#include<fstream>
 #include <iomanip>
 #include <cmath>
 #include <string>
@@ -63,6 +64,7 @@ private:
 
   double learnRate;// = 0.2;    //Rho.
   int trainingReps;// = 2000;
+  bool FILE;
   
   long long iterations;
   
@@ -104,6 +106,11 @@ private:
   int getRandomNumber();
   double sigmoid(double val);
   double sigmoidDerivative(double val);
+  
+  double string_to_double(const std::string& s);
+  
+  //Data generation
+  ofstream *mseO, *errO, *inO, *outO;
   
 };
 

@@ -10,7 +10,7 @@
 
 
 Recognition::Recognition(ResourceFinder &rf):
-angleB(0), heightBall(0)
+angleB(0), heightBall(0), upDown(false)
 {    
     namedWindow("Vision and states", CV_WINDOW_AUTOSIZE+WINDOW_OPENGL);
 	
@@ -25,7 +25,7 @@ angleB(0), heightBall(0)
         std::cout << "Unable to retrieve frame from video stream." << std::endl;
 	capture = VideoCapture(0); //Webcam 0
 	
-    }
+    }    
     
     relationToString[0] = "going toward";
     relationToString[1] = "going away of";
@@ -179,7 +179,10 @@ void Recognition::moveObject(){
 		heightBall = -0.5;
 	
 	xB = -0.5+0.5*cos(angleB);
-	zB = 1+heightBall+0.1*sin(angleB);
+	if(upDown)
+	      zB = 1+heightBall+0.1*abs(sin(angleB));
+	else
+	      zB = 1+heightBall-0.1*abs(sin(angleB));
 	
 	toWorld.clear();
 	
@@ -204,6 +207,7 @@ bool Recognition::updateModule() {
 	
 	if(!ICUB){
 		capture>>newImg;
+		output_cap.write(newImg);
 	}else{	
 		imgLeft = camLeft.read();
 		newImg = Mat((IplImage*)imgLeft->getIplImage(), true);
@@ -247,6 +251,7 @@ bool Recognition::interruptModule() {
 
 bool Recognition::close() {
 	
+    output_cap.release();
     return true;
 }
 

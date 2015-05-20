@@ -67,6 +67,7 @@ private:
   
   bool learning;
   double heightBall;
+  bool upDown;
   
   State *bestState;
     
@@ -83,6 +84,7 @@ private:
   
   //Video capture class
   VideoCapture capture;
+  VideoWriter output_cap;
   Mat newImg;
   ImageOf<PixelRgb> *imgLeft;
   

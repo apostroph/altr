@@ -26,7 +26,7 @@ simpleTrackingModule::simpleTrackingModule():
 sL(100), sH(255), vL(20), vH(255), hueL(0), hueH(180), medianBlurV(6), open(1), close(4)
 {
 	
-	initBlobDetector("../Recognition/initialization_files/blobDetector.ini");
+	initBlobDetector("../RGB_tracker/src/initialization_files/blobDetector.ini");
 		
 	namedWindow("RGB2", CV_WINDOW_AUTOSIZE+WINDOW_OPENGL);
 	
