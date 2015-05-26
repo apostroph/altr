@@ -15,6 +15,8 @@
 #include <ctime>
 #include <cstdlib>
 
+#include <math.h> //isnan
+
 #include <eigen3/Eigen/Dense>
 
 #include <yarp/os/all.h>
@@ -67,6 +69,7 @@ private:
   bool FILE;
   
   long long iterations;
+  long long testIter;
   
   VectorXd beVector;//[inputNeurons] = {1.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
@@ -85,7 +88,7 @@ private:
   MatrixXd who;//[hiddenNeurons + 1][outputNeurons];
 
   //Hidden to Context weights (no biases).
-  MatrixXd whc;//[outputNeurons + 1][contextNeurons];
+  MatrixXd whc;//[hiddenNeurons + 1][contextNeurons];
   
     //Activations.
   VectorXd inputs;//[inputNeurons];
@@ -103,14 +106,20 @@ private:
   void feedForward();
   void backPropagate();
   void assignRandomWeights();
-  int getRandomNumber();
-  double sigmoid(double val);
-  double sigmoidDerivative(double val);
+  void resetNodes();
   
   double string_to_double(const std::string& s);
   
   //Data generation
   ofstream *mseO, *errO, *inO, *outO;
+  void openFile(string src, int iter);
+  void mapInput(double value, int index);
+  
+  //Math function
+  int getRandomNumber();
+  double sigmoid(double val);
+  double sigmoidDerivative(double val);
+  double gaussian(double in, double mean, double variance);
   
 };
 

@@ -10,10 +10,12 @@
 
 
 Predictor::Predictor(ResourceFinder &rf):
-maxTests(10000), maxSamples(4), inputNeurons(15),
-hiddenNeurons(10), outputNeurons(15), contextNeurons(10),
-learnRate(0.2), trainingReps(2000), iterations(0)
+maxTests(10000), maxSamples(4), inputNeurons(4),
+hiddenNeurons(40), outputNeurons(4), contextNeurons(40),
+learnRate(0.05), trainingReps(2000), iterations(0),
+testIter(0)
 {    
+	//Assign paramters values to internal varaibles
 	if(rf.find("MAXTESTS").asInt() != 0)
 		maxTests = rf.find("MAXTESTS").asInt();// = 10000;
 	
@@ -34,12 +36,16 @@ learnRate(0.2), trainingReps(2000), iterations(0)
 	if(rf.find("TRAINSTEP").asInt() != 0)
 		trainingReps = rf.find("TRAINSTEP").asInt();// = 2000;
 	
+	//Use files for training
 	FILE = rf.find("FILE").asInt();
 	
+	//Used for the first iteration
 	beVector = VectorXd(inputNeurons);//[inputNeurons] = {1.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+	//Input buffer
 	sampleInput = MatrixXd(2, inputNeurons);
 	
-	for(int i = 0; i < inputNeurons; i++){
+	//Initialise all inputs to 0
+	for(int i = 0; i <= (inputNeurons-1); i++){
 		beVector(i) = 0;
 		sampleInput(0, i) = 0;
 		sampleInput(1, i) = 0;
@@ -67,7 +73,7 @@ learnRate(0.2), trainingReps(2000), iterations(0)
 	erro = VectorXd(outputNeurons);//[outputNeurons];
 	errh = VectorXd(hiddenNeurons);//[hiddenNeurons];
 	
-	//Initialise the output
+	//Initialise the output stream
 	errO = new std::ofstream("../Predictor/Data/err.txt", std::ofstream::out);
 	mseO = new std::ofstream("../Predictor/Data/MSE.txt", std::ofstream::out);
 	inO = new std::ofstream("../Predictor/Data/in.txt", std::ofstream::out);
@@ -75,6 +81,10 @@ learnRate(0.2), trainingReps(2000), iterations(0)
 	
 }
 
+
+/**
+ * Yarp configure
+ */
 bool Predictor::configure(yarp::os::ResourceFinder &rf) {    
     
 	//init the network
@@ -86,115 +96,80 @@ bool Predictor::configure(yarp::os::ResourceFinder &rf) {
 	srand((unsigned)time(0));   //Seed random number generator with system time.
     
 	assignRandomWeights();
-    
-	/*ElmanNetwork();
-	testNetwork();*/
-	
-	//TEST
-	if(FILE){
-		ifstream inFile1;
-		
-		for(int i = 0; i < 1000; i ++){
-			inFile1.open("Data/input.txt");
-			if (inFile1.is_open())
-			{
-				string line;
-				while ( getline (inFile1,line) )
-				{
-					int value;
-					int count = 0;
-					line = line.substr(line.find(" ")+1);
-					while(line.find(" ") != std::string::npos){
-						value = string_to_double(line.substr(0, line.find(" ")+1));
-						line = line.substr(line.find(" ")+1);
-						
-						sampleInput(1, count) = sampleInput(0, count);
-						sampleInput(0, count) = value;	
-						count++;
-					}
-					sampleInput(1, count) = sampleInput(0, count);
-					sampleInput(0, count) = string_to_double(line);	
-			
-					ElmanNetwork();
-					
-				}
-				inFile1.close();
-			}else{
-				cerr<<"Error while opening input file"<<endl;
-			}
-		}
-		
-		ifstream inFile2("Data/input.txt");
-		
-		if (inFile2.is_open())
-		{
-			string line;
-			while ( getline (inFile2,line) )
-			{
-				int value;
-				int count = 1;
-				line = line.substr(line.find(" ")+1);
-				while(line.find(" ") != std::string::npos){
-					value = string_to_double(line.substr(0, line.find(" ")+1));
-					line = line.substr(line.find(" ")+1);
-					
-					sampleInput(1, count) = sampleInput(0, count);
-					sampleInput(0, count) = value;	
-					count++;
-				}
-				sampleInput(0, count) = string_to_double(line);	
-		
-				testNetwork();
-				
-			}
-			inFile2.close();
-		}else{
-			cerr<<"Error while opening input file"<<endl;
-		}
-		
-	}
-	else if(rf.find("TRAIN").asInt() == 1){
-		for(int i = 0; i < trainingReps/2; i++)
-		{
-			for(int j = 0; j < 4; j++){
-				for(int i = 0; i <= (inputNeurons - 1); i++){
-					sampleInput(1, i) = sampleInput(0, i);
-					sampleInput(0, i) = 0;
-				}
-				sampleInput(0, 0) = 1;
-				
-				sampleInput(0, 3) = j==1;
-				sampleInput(0, 4) = j==2;
-				sampleInput(0, 5) = j==3;
-				
-				sampleInput(0, 6) = 1;
-				sampleInput(0, 7) = 0;
-				sampleInput(0, 8) = 0;
-				ElmanNetwork();
-			}
-			
-			for(int j = 0; j < 4; j++){
-				for(int i = 0; i <= (inputNeurons - 1); i++){
-					sampleInput(1, i) = sampleInput(0, i);
-					sampleInput(0, i) = 0;
-				}
-				sampleInput(0, 1) = 1;
-				
-				sampleInput(0, 3) = j==1;
-				sampleInput(0, 4) = j==2;
-				sampleInput(0, 5) = j==3;
-				
-				sampleInput(0, 6) = 0;
-				sampleInput(0, 7) = 0;
-				sampleInput(0, 8) = 1;
-				ElmanNetwork();
-			}
-		}
-	}
 	
 	return true;
 }
 
+/**
+ * Assign value to the input
+ */
+void Predictor::mapInput(double value, int index){
+					
+	if(std::isnan(value)){
+		//If no input, the input is NULL and tha target is NaN (no learning)
+		sampleInput(1, index) = 0;	
+		sampleInput(0, index) = std::numeric_limits<double>::quiet_NaN();
+	}else{	
+		if(std::isnan(sampleInput(0, index)))
+			sampleInput(1, index) = actual(index);
+		else
+			sampleInput(1, index) = sampleInput(0, index);
+		sampleInput(0, index) = value;	
+		//cout<<value<<endl;
+	}
+}
+
+/**
+ * Use files to train and test the network
+ */
+void Predictor::openFile(string src, int inter){
+	bool test = false;
+	bool train = false;
+	
+	//TEST
+	ifstream inFile1;
+	
+	for(int i = 0; i < inter; i ++){
+		inFile1.open(src);
+		if (inFile1.is_open())
+		{
+			string line;
+			while ( getline (inFile1,line) )
+			{
+				double value;
+				int count = 0;
+				
+				test = (line.find("TEST") != std::string::npos);
+				train = (line.find("LEARN") != std::string::npos);
+				
+				line = line.substr(line.find(" ")+1);
+				while(line.find(" ") != std::string::npos){
+					value = string_to_double(line.substr(0, line.find(" ")+1));	
+					
+					mapInput(value, count);
+					
+					line = line.substr(line.find(" ")+1);			
+					count++;
+				}
+				mapInput(string_to_double(line), count);
+				  
+				if(train)
+					ElmanNetwork();
+				if(test)
+					testNetwork();
+				
+			}
+			inFile1.close();
+		}else{
+			cerr<<"Error while opening input file"<<endl;
+		}
+		resetNodes();
+	}
+}
+
+/**
+ * Init yarp port
+ */
 bool Predictor::initPorts(yarp::os::ResourceFinder &rf){
 	moduleName            = rf.check("name", 
 			      Value("Predictor"), 
@@ -231,61 +206,25 @@ bool Predictor::initPorts(yarp::os::ResourceFinder &rf){
 	return true;
 }
 
-/* Called periodically every getPeriod() seconds */
-bool Predictor::updateModule() {
-	
-    return true;
-}
 
-double Predictor::getPeriod() {
-    /* module periodicity (seconds), called implicitly by myModule */    
-    return 0.05;
-}
-
-bool Predictor::interruptModule() {
-    return true;
-}
-
-bool Predictor::close() {
-	
-    errO->close();
-    inO->close();
-    outO->close();
-    cout<<"Module closing"<<endl;
-    return true;
-}
-
+/**
+ * Yarp respond method
+ */
 bool Predictor::respond(const Bottle& command, Bottle& reply) {
-  
-    for(int i = 0; i <= (inputNeurons - 1); i++){
-	  sampleInput(1, i) = sampleInput(0, i);
-	  sampleInput(0, i) = command.get(i+1).asDouble();
-    }
-	  
-    if(command.get(0).asString() == "learning")
-	  ElmanNetwork();
-    else if(command.get(0).asString() == "tloop"){
-      for(int i = 0; i < command.get(inputNeurons+1).asInt(); i++){
-	  testNetwork();
-	  
-	  for(int i = 0; i <= (inputNeurons - 1); i++){
-		sampleInput(1, i) = sampleInput(0, i);
-		sampleInput(0, i) = actual(i);
-	  }
-      }
-    }
-    else{
-	  testNetwork();
-    }
       
     return true;
 }
 
+
+/**
+ * Train the network
+ */
 void Predictor::ElmanNetwork(){
       double err, mse;
+      int counter = 0;
       bool sameInput = true;
 
-      //Train the network.
+      //Test is the input is repeted
       for(int i = 0; i <= (inputNeurons - 1); i++){
 		if(sampleInput(1, i) != sampleInput(0, i)){
 			sameInput = false;
@@ -293,6 +232,7 @@ void Predictor::ElmanNetwork(){
 		}
       }
       
+      //If the input is not repeted, train the network and measure the error
       if(!sameInput){
 		if(iterations == 0){
 		    for(int i = 0; i <= (inputNeurons - 1); i++){
@@ -303,50 +243,44 @@ void Predictor::ElmanNetwork(){
 			inputs(i) = sampleInput(1, i);
 		    } // i
 		}
-
-		//After the samples are entered into the input units, the sample are
-		//then offset by one and entered into target-output units for
-		//later comparison.
-		/*if(sample == maxSamples - 1){
-		    for(int i = 0; i <= (inputNeurons - 1); i++){
-			target(i) = beVector(i);
-		    } // i
-		} else {*/
+		
 		for(int i = 0; i <= (inputNeurons - 1); i++){
 		    target(i) = sampleInput(0, i);
 		} // i
 		//}
+		
 
 		feedForward();
-		
 		err = 0.0;
 		mse = 0.0;
-		for(int i = 0; i <= (outputNeurons - 1); i++){ 
-		    err += abs(target(i) - actual(i));
-		    mse += pow(target(i) - actual(i), 2);
-		} // i
-		err = err/outputNeurons;
-		mse = mse/outputNeurons;
-		*errO<<err<<endl;
-		*mseO<<mse<<endl;
-
-		/*if(iterations > trainingReps){
-		    stopLoop = true;
-		}*/
-		cout<<iterations<<endl;
-		iterations += 1;
+		for(int i = 0; i <= (inputNeurons - 1); i++){ 
+		    if(!std::isnan(target(i))){
+			    err += abs(target(i) - actual(i));
+			    mse += pow(target(i) - actual(i), 2);
+			    //MEas square error for each output
+			    *mseO << pow(target(i) - actual(i), 2) << "\t";
+			    counter++;
+		    }else{
+			    *mseO << "NaN" << "\t";
+		    }
+		} // i		
+		
+		*mseO<<endl;
+		
+		//Average error
+		*errO<<(double)err/counter<<endl;
 		
 		backPropagate();
-
-		/*sample += 1;
-		if(sample == maxSamples){
-		    sample = 0;
-		}*/
-
-	    //     cout << "Iterations = " << iterations << endl;
+		
+	        cout << "Iterations = " << iterations << endl;
+		iterations += 1;
 	}
 }
 
+
+/**
+ * Test the network
+ */
 void Predictor::testNetwork(){
 	bool sameInput = true;
 	//for(int test = 0; test <= maxTests; test++){
@@ -357,14 +291,15 @@ void Predictor::testNetwork(){
 		      break;
 	      }
 	}
-	  
 	if(!sameInput){
 	      //Enter Beginning string.
 	      for(int i = 0; i <= (inputNeurons - 1); i++){
-		  inputs(i) = sampleInput(1, i);
+		  inputs(i) = (double)sampleInput(1, i);
 	      } // i
 
 	      //loop to predict step t+i
+	      *inO<<testIter<< "\t";
+	      *outO<<testIter<< "\t";
 	      for(int i = 0; i < 1; i++){
 		      feedForward();
 		      for(int i = 0; i <= (inputNeurons - 1); i++){
@@ -375,7 +310,7 @@ void Predictor::testNetwork(){
 		      for(int i = 0; i <= (inputNeurons - 1); i++){
 			  *outO << actual(i) << "\t";
 		      } // i
-		      *outO<<endl;
+		      *outO << endl;
 		      
 		    //Output becomes input
 		    for(int i = 0; i <= (inputNeurons - 1); i++){
@@ -383,10 +318,39 @@ void Predictor::testNetwork(){
 		    } // i
 
 	      }
+	      testIter++;
 	}
 //     cout<<"Predicted output is: "<<predicted<<endl;
 }
 
+
+/**
+ * Reset all the node to 0
+ */
+void Predictor::resetNodes(){
+      
+    for(int in = 0; in <= (inputNeurons - 1); in++){
+	    sampleInput(0, in) = 0;
+	    sampleInput(1, in) = 0;
+    }
+    
+    for(int out = 0; out <= (outputNeurons - 1); out++){
+	    actual(out) = 0;
+    }
+     
+    for(int hid = 0; hid <= (hiddenNeurons - 1); hid++){
+	    hidden(hid) = 0;
+    }
+     
+    for(int con = 0; con <= (contextNeurons - 1); con++){
+	    context(con) = 0;
+    }
+}
+
+
+/**
+ * Calculate the value of the neurons in the different layers
+ */
 void Predictor::feedForward(){
     double sum;
 
@@ -395,7 +359,13 @@ void Predictor::feedForward(){
         sum = 0.0;
         //from input to hidden...
         for(int inp = 0; inp <= (inputNeurons - 1); inp++){
-            sum += inputs(inp) * wih(inp, hid);
+	    if(!std::isnan(inputs(inp))){
+		    sum += inputs(inp) * wih(inp, hid);
+    //  		cout<<"Error = "<<target(out)<<endl;
+	    }else{
+		    sum+= 0;
+    // 		cout<<"no backPropagate for out "<<out<<endl;
+	    }
         } // inp
         //from context to hidden...
         for(int con = 0; con <= (contextNeurons - 1); con++){
@@ -421,16 +391,26 @@ void Predictor::feedForward(){
 
     //Copy outputs of the hidden to context layer.
     for(int con = 0; con <= (contextNeurons - 1); con++){
-        context(con)= hidden(con);
+        context(con) = hidden(con);
     } // con
 
 }
 
+
+/**
+ * Train the weight using backpropagation through time
+ */
 void Predictor::backPropagate(){
 
     //Calculate the output layer error (step 3 for output cell).
     for(int out = 0; out <= (outputNeurons - 1); out++){
-        erro(out)= (target(out)- actual(out)) * sigmoidDerivative(actual(out));
+	if(!std::isnan(target(out))){
+		erro(out)= (target(out)- actual(out)) * sigmoidDerivative(actual(out));
+//  		cout<<"Error = "<<target(out)<<endl;
+	}else{
+		erro(out) = 0;
+// 		cout<<"no backPropagate for out "<<out<<endl;
+	}
     } // out
 
     //Calculate the hidden layer error (step 3 for hidden cell).
@@ -462,6 +442,10 @@ void Predictor::backPropagate(){
 
 }
 
+
+/**
+ * Assign random weight between the different layers
+ */
 void Predictor::assignRandomWeights(){
 
     for(int inp = 0; inp <= inputNeurons; inp++){
@@ -480,29 +464,64 @@ void Predictor::assignRandomWeights(){
 
     for(int hid = 0; hid <= hiddenNeurons; hid++){
         for(int out = 0; out <= (outputNeurons - 1); out++){
-            //Assign a random weight value between -0.5 and 0.5
-            who(hid, out)= -0.5 + double(rand()/(RAND_MAX + 1.0));
+            //Assign a weight value of 0 to the output weight
+            who(hid, out)= 0;
         } // out
     } // hid
 
+    //whc is never used here used
     for(int out = 0; out <= outputNeurons; out++){
         for(int con = 0; con <= (contextNeurons - 1); con++){
             //These are all fixed weights set to 0.5
             whc(out, con)= 0.5;
         } // con
     } // out
-
+    
 }
 
+/* Called periodically every getPeriod() seconds */
+bool Predictor::updateModule() {
+	
+    return true;
+}
+
+double Predictor::getPeriod() {
+    /* module periodicity (seconds), called implicitly by myModule */    
+    return 0.05;
+}
+
+bool Predictor::interruptModule() {
+    return true;
+}
+
+bool Predictor::close() {
+	
+    errO->close();
+    inO->close();
+    outO->close();
+    cout<<"Module closing"<<endl;
+    return true;
+}
+
+
+/**
+ * getRandomNumber
+ */
 int Predictor::getRandomNumber(){
     //Generate random value between 0 and 6.
     return int(6*rand()/(RAND_MAX + 1.0));
 }
 
+/**
+ * Apply sigmoid function to the value
+ */
 double Predictor::sigmoid(double val){
     return (1.0 / (1.0 + exp(-val)));
 }
 
+/**
+ * Apply sigmoid derivative function to the value
+ */
 double Predictor::sigmoidDerivative(double val){
     return (val * (1.0 - val));
 }
@@ -520,6 +539,16 @@ double Predictor::string_to_double(const std::string& s){
      return std::numeric_limits<double>::quiet_NaN();
    return x;
  } 
+
+
+
+/**
+ * Apply gaussian function to the value
+ */
+double Predictor::gaussian(double in, double mean, double std)
+{
+      return (1./(sqrt(pow(std, 2)*2*M_PI))*exp(-0.5*pow((in-mean)/pow(std, 2), 2)));
+}
 
 Predictor::~Predictor(){
   
