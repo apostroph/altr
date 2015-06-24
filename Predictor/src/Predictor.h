@@ -15,6 +15,7 @@
 #include <ctime>
 #include <cstdlib>
 
+#include <list>
 #include <math.h> //isnan
 
 #include <eigen3/Eigen/Dense>
@@ -63,9 +64,14 @@ private:
   int hiddenNeurons;// = 3;
   int outputNeurons;// = 6;
   int contextNeurons;// = 3;
+  
+  //For the visuomotor application only
+  int motorNeurons;// = 3;
+  int visualNeurons;// = 3;
 
   double learnRate;// = 0.2;    //Rho.
   int trainingReps;// = 2000;
+  double maxError;
   bool FILE;
   
   long long iterations;
@@ -77,6 +83,9 @@ private:
   MatrixXd sampleInput;//[3][inputNeurons] = {{0.0, 0.0, 0.0, 1.0, 0.0, 0.0},
 					//{0.0, 0.0, 0.0, 0.0, 0.0, 1.0},
 					//{0.0, 0.0, 1.0, 0.0, 0.0, 0.0}};
+  
+  VectorXd nextInput;
+  VectorXd nextTarget;
 
   //Input to Hidden weights (with biases).
   MatrixXd wih;//[inputNeurons + 1][hiddenNeurons];
@@ -107,13 +116,17 @@ private:
   void backPropagate();
   void assignRandomWeights();
   void resetNodes();
+  void measurePE();
   
   double string_to_double(const std::string& s);
   
   //Data generation
-  ofstream *mseO, *errO, *inO, *outO;
-  void openFile(string src, int iter);
+  ofstream *EmO, *inO, *outO;
+  void openFile(string src, int iter, bool test_train);
   void mapInput(double value, int index);
+  long long fileCounter;
+  double averageError;
+  std::list<double> Em;
   
   //Math function
   int getRandomNumber();

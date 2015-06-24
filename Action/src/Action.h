@@ -58,6 +58,8 @@ private:
     string localNameLeftHand;
     string localNameRightHand;
     
+    enum {right = 0, left = 1};
+    
     bool targetInRange(int arm, double x, double y, double z);
     
     void moves(ICartesianControl *icart, double x, double y, double z, double orientation, double push);
@@ -70,6 +72,12 @@ private:
     
     string portInName;
     yarp::os::Port portIn;
+    
+    string portGazeName;
+    yarp::os::Port portGaze;
+    
+    string portPreName;
+    yarp::os::Port portPre;
     
     PolyDriver *clientCartCtrlLeft;
     ICartesianControl *cartesianCtrlLeft;
@@ -89,6 +97,10 @@ private:
     IVelocityControl *velLeftHand;
     IEncoders *encLeftHand;
     double angleLeft;
+    
+    bool gazeON;
+    bool gazeTC;
+    void sendHandPos();
         
     //Initialisation methods
     bool openCartCon(yarp::os::ResourceFinder &rf, string localName, string remoteName, PolyDriver **clientCartCtrl, ICartesianControl **cartesianCtrl);
@@ -114,8 +126,9 @@ private:
     bool enableBody(ICartesianControl* cartesianCtrl, yarp::sig::Vector* dof);
     bool desableBody(ICartesianControl* cartesianCtrl, yarp::sig::Vector* dof);
     
-    void start();
+    void start(int arm);
     void stop();
+    void gaze(double x, double y, double z);
     
     void doAction(int actionID);
     

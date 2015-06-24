@@ -22,7 +22,9 @@ double rightHandClose[9] = {30., 20., 13., 10., 60., 140., 50., 145., 180.};
 
 YARP_DECLARE_DEVICES(icubmod)
 
-Action::Action(ResourceFinder &rf){
+Action::Action(ResourceFinder &rf):
+gazeON(false), gazeTC(false)
+{
 }
 
 Action::~Action(){
@@ -47,10 +49,28 @@ bool Action::openPorts(yarp::os::ResourceFinder &rf){
 	
 	// Open OUT
 	    portOutName = "/";
-	portOutName += getName() + "/Out";
+	portOutName += getName() + "/out";
 
 	if (!portOut.open(portOutName.c_str())) {           
 	    cout << getName() << ": Unable to open port " << portOutName << endl;  
+	    return false;
+	}
+	
+	// Open GAZE
+	    portGazeName = "/";
+	portGazeName += getName() + "/Gaze/out";
+
+	if (!portGaze.open(portGazeName.c_str())) {           
+	    cout << getName() << ": Unable to open port " << portGazeName << endl;  
+	    return false;
+	}
+	
+	// Open Predictor
+	    portPreName = "/";
+	portPreName += getName() + "/Predictor/out";
+
+	if (!portPre.open(portPreName.c_str())) {           
+	    cout << getName() << ": Unable to open port " << portPreName << endl;  
 	    return false;
 	}
 	
@@ -190,6 +210,8 @@ bool Action::openHandCtrl(string localName, string remoteName, PolyDriver **clie
 		tmp[i] = 50.0;
 	}
 	(*pos)->setRefAccelerations(tmp.data());
+	
+	return true;
 }
 
 bool Action::configure(yarp::os::ResourceFinder &rf){
@@ -224,13 +246,14 @@ bool Action::close(){
 }
 
 bool Action::respond(const yarp::os::Bottle& command, yarp::os::Bottle& reply){
-	
-	if(command.get(0).asString().find("Act1") != -1){
+	if(command.get(0).asString().find("Act1") != std::string::npos){
 	  
 		selectAction(command.get(1).asInt(), command.get(2).asInt(), command.get(3).asDouble(), 
 			     command.get(4).asDouble(), command.get(5).asDouble());
+		
+
 	}
-	else if(command.get(0).asString().find("Act2") != -1){
+	else if(command.get(0).asString().find("Act2") != std::string::npos){
 	      
 		selectAction(command.get(1).asInt(), 0, command.get(2).asDouble(), 
 			     command.get(3).asDouble(), command.get(4).asDouble());
@@ -238,19 +261,26 @@ bool Action::respond(const yarp::os::Bottle& command, yarp::os::Bottle& reply){
 			     command.get(7).asDouble(), command.get(8).asDouble());
 	}
 	
-	if(command.get(0).asString().find("TO") != -1){
+	if(command.get(0).asString().find("TO") != std::string::npos){
 		cartesianCtrlRight->waitMotionDone(0.04);
 		cartesianCtrlLeft->waitMotionDone(0.04);
 	  
 	}
+	
+	gazeON = command.get(0).asString().find("GA") != std::string::npos;
+	
+	gazeTC = command.get(0).asString().find("GM") != std::string::npos;
+	
+	
 	reply.clear();
 	reply.addString("ACK");
+	
+	stop();
+	
 	return true;
 }
 
 void Action::goHome(){
-	bool done = false;
-	
 	moves(cartesianCtrlRight, -0.25, 0.2, 0, 0, -1); //Home position	
 	moves(cartesianCtrlLeft, -0.25, -0.2, 0, 0, -1); //Home position
 }
@@ -336,16 +366,31 @@ void Action::a_release(int arm){
 	}
 }
 
-void Action::start(){
+void Action::start(int arm){
 	Bottle ACKNode2;
-	ACKNode2.addString("actionStarted");
-	portOut.write(ACKNode2);
+	ACKNode2.addString("ACTION");
+	ACKNode2.addInt(!arm);
+	ACKNode2.addInt(arm);
+	portPre.write(ACKNode2);
 }
 
 void Action::stop(){
 	Bottle ACKNode2;
-	ACKNode2.addString("actionStoped");
-	portOut.write(ACKNode2);
+	ACKNode2.addString("ACTION");
+	ACKNode2.addInt(0);
+	ACKNode2.addInt(0);
+	portPre.write(ACKNode2);
+}
+
+void Action::gaze(double x, double y, double z){
+	Bottle toGaze;
+	  
+	toGaze.addString("gaze");  
+	toGaze.addDouble(x);
+	toGaze.addDouble(y);
+	toGaze.addDouble(z);
+	
+	portGaze.write(toGaze);
 }
 
 bool Action::enableBody(ICartesianControl* cartesianCtrl, yarp::sig::Vector* dof){
@@ -418,9 +463,7 @@ void Action::moves(ICartesianControl *icart, double x, double y, double z, doubl
 	
 	cout<<"Move to :"<<xd.toString()<<endl;
 	
-	start();
 	icart->goToPose(xd, od);   // send request and forget
-	stop();
 	
 }
 
@@ -451,7 +494,8 @@ void doAction(int actionID){
 	
 }
 
-bool Action::updateModule(){
+void Action::sendHandPos(){
+	
 	Bottle handsPos;
 	Vector xdR, odR;
 	Vector xdL, odL;
@@ -477,12 +521,21 @@ bool Action::updateModule(){
 	handsPos.addDouble(odR[2]);
 	
 	portOut.write(handsPos);
-	
+}
+
+bool Action::updateModule(){
+	sendHandPos();
 	return true;
 }
 
 void Action::selectAction(int ID, int arm, double x, double y, double z){	
+	
 	if(targetInRange(arm, x, y, z)){
+		start(arm);
+		if(gazeON)
+			gaze(x, y, z);	
+		else if(gazeTC)
+			gaze(-0.4, 0, 0.01);
 		switch(ID){
 			case 1: sendActionNode("ReachFor"); a_move(arm, x, y, z); break;
 			case 2: sendActionNode("Push"); a_push(arm, x, y, z); break;
@@ -514,6 +567,6 @@ double Action::string_to_double(const std::string& s){
 } 
 
 double Action::getPeriod(){
-	return 0.5;
+	return 0.05;
 }
 

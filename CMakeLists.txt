@@ -39,3 +39,18 @@ target_link_libraries(Action ${YARP_LIBRARIES} ${OpenCV_LIBS})
 target_link_libraries(Action icubmod ctrlLib)
 
 install(TARGETS Action DESTINATION bin)
+
+# Gaze
+add_executable(Gaze Gaze/src/main.cpp Gaze/src/Gaze.h Gaze/src/Gaze.cpp)
+# link with YARP libraries
+target_link_libraries(Gaze ${YARP_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(Gaze icubmod ctrlLib)
+
+install(TARGETS Gaze DESTINATION bin)
+
+# Gaze
+add_executable(Test Test/main.cpp Test/test.cpp Test/test.h)
+# link with YARP libraries
+target_link_libraries(Test ${YARP_LIBRARIES})
+
+install(TARGETS Test DESTINATION bin)

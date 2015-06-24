@@ -108,9 +108,9 @@ void Recognition::sendInformation(){
 	Bottle visionOutBottle;	
 	
 	if(learning){
-		visionOutBottle.addString("learning");
+		visionOutBottle.addString("LEARN");
 	}else{
-		visionOutBottle.addString("testing");
+		visionOutBottle.addString("TEST");
 	}
 	
 	if(bestState != NULL && bestState->getStrength() > 0.1){

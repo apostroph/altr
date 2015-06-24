@@ -5,50 +5,49 @@
 */
 
 #define QUEUE_SIZE 5
+#define DELTA 150
 
 #include "Predictor.h"
 
 
 Predictor::Predictor(ResourceFinder &rf):
-maxTests(10000), maxSamples(4), inputNeurons(4),
-hiddenNeurons(40), outputNeurons(4), contextNeurons(40),
-learnRate(0.05), trainingReps(2000), iterations(0),
-testIter(0)
+motorNeurons(4), visualNeurons(6),
+hiddenNeurons(40), contextNeurons(40),
+learnRate(0.05)
 {    
-	//Assign paramters values to internal varaibles
-	if(rf.find("MAXTESTS").asInt() != 0)
-		maxTests = rf.find("MAXTESTS").asInt();// = 10000;
+	//Assign paramters values to visual neurons and motor neurons
+	if(rf.find("VN").asInt() != 0)
+		visualNeurons = rf.find("VN").asInt();// = 6;
+	if(rf.find("MN").asInt() != 0)
+		motorNeurons = rf.find("MN").asInt();// = 6;
 	
-	if(rf.find("MAXSAMPLE").asInt() != 0)
-		maxSamples = rf.find("MAXSAMPLE").asInt();// = 4;
+	//The number of input and output neuron is equal to the sum of motor and visual neurons
+	inputNeurons = visualNeurons+motorNeurons;
+	outputNeurons = inputNeurons;
 	
-	if(rf.find("INN").asInt() != 0)
-		inputNeurons = rf.find("INN").asInt();// = 6;
+	//Assign paramters values to hidden neurons and context neurons
 	if(rf.find("HN").asInt() != 0)
 		hiddenNeurons = rf.find("HN").asInt();// = 3;
-	if(rf.find("OUTN").asInt() != 0)
-		outputNeurons = rf.find("OUTN").asInt();// = 6;
 	if(rf.find("CN").asInt() != 0)
 		contextNeurons = rf.find("CN").asInt();// = 3;
 
+	//Assign paramters values to the learning rate
 	if(rf.find("LRATE").asDouble() != 0.0)
 		learnRate = rf.find("LRATE").asDouble();// = 0.2;    //Rho.
-	if(rf.find("TRAINSTEP").asInt() != 0)
-		trainingReps = rf.find("TRAINSTEP").asInt();// = 2000;
 	
-	//Use files for training
+	//If files are used for training
 	FILE = rf.find("FILE").asInt();
 	
 	//Used for the first iteration
 	beVector = VectorXd(inputNeurons);//[inputNeurons] = {1.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-	//Input buffer
-	sampleInput = MatrixXd(2, inputNeurons);
 	
-	//Initialise all inputs to 0
+	//Buffer vectors
+	nextInput = VectorXd(inputNeurons);
+	nextTarget = VectorXd(inputNeurons);
+	
+	//Initialise beVector to 0
 	for(int i = 0; i <= (inputNeurons-1); i++){
 		beVector(i) = 0;
-		sampleInput(0, i) = 0;
-		sampleInput(1, i) = 0;
 	}
 
 	//Input to Hidden weights (with biases).
@@ -73,12 +72,10 @@ testIter(0)
 	erro = VectorXd(outputNeurons);//[outputNeurons];
 	errh = VectorXd(hiddenNeurons);//[hiddenNeurons];
 	
-	//Initialise the output stream
-	errO = new std::ofstream("../Predictor/Data/err.txt", std::ofstream::out);
-	mseO = new std::ofstream("../Predictor/Data/MSE.txt", std::ofstream::out);
-	inO = new std::ofstream("../Predictor/Data/in.txt", std::ofstream::out);
-	outO = new std::ofstream("../Predictor/Data/out.txt", std::ofstream::out);
-	
+	inO = new std::ofstream("../Predictor/Data/In.cvs");
+	outO = new std::ofstream("../Predictor/Data/Out.cvs");
+	//Mean error over DELTA values
+	EmO = new std::ofstream("../Predictor/Data/Em.cvs");
 }
 
 
@@ -95,7 +92,10 @@ bool Predictor::configure(yarp::os::ResourceFinder &rf) {
 	cout << fixed << setprecision(3) << endl;           //Format all the output.
 	srand((unsigned)time(0));   //Seed random number generator with system time.
     
+	
+	resetNodes();
 	assignRandomWeights();
+	iterations = 0;
 	
 	return true;
 }
@@ -107,14 +107,14 @@ void Predictor::mapInput(double value, int index){
 					
 	if(std::isnan(value)){
 		//If no input, the input is NULL and tha target is NaN (no learning)
-		sampleInput(1, index) = 0;	
-		sampleInput(0, index) = std::numeric_limits<double>::quiet_NaN();
+		nextInput(index) = 0;
+		nextTarget(index) = -1;
 	}else{	
-		if(std::isnan(sampleInput(0, index)))
-			sampleInput(1, index) = actual(index);
+		if(nextTarget(index) != -1)
+			nextInput(index) = nextTarget(index);
 		else
-			sampleInput(1, index) = sampleInput(0, index);
-		sampleInput(0, index) = value;	
+			nextInput(index) = actual(index);
+		nextTarget(index) = value;	
 		//cout<<value<<endl;
 	}
 }
@@ -122,9 +122,11 @@ void Predictor::mapInput(double value, int index){
 /**
  * Use files to train and test the network
  */
-void Predictor::openFile(string src, int inter){
-	bool test = false;
-	bool train = false;
+void Predictor::openFile(string src, int inter, bool train_test){
+	bool test = !train_test;
+	bool train = train_test;
+	
+	maxError = -1;
 	
 	//TEST
 	ifstream inFile1;
@@ -132,17 +134,14 @@ void Predictor::openFile(string src, int inter){
 	for(int i = 0; i < inter; i ++){
 		inFile1.open(src);
 		if (inFile1.is_open())
-		{
+		{	
+			fileCounter = 0;
+			averageError = 0;
 			string line;
 			while ( getline (inFile1,line) )
 			{
 				double value;
 				int count = 0;
-				
-				test = (line.find("TEST") != std::string::npos);
-				train = (line.find("LEARN") != std::string::npos);
-				
-				line = line.substr(line.find(" ")+1);
 				while(line.find(" ") != std::string::npos){
 					value = string_to_double(line.substr(0, line.find(" ")+1));	
 					
@@ -153,8 +152,10 @@ void Predictor::openFile(string src, int inter){
 				}
 				mapInput(string_to_double(line), count);
 				  
-				if(train)
+				if(train){
 					ElmanNetwork();
+					fileCounter ++;
+				}
 				if(test)
 					testNetwork();
 				
@@ -211,8 +212,68 @@ bool Predictor::initPorts(yarp::os::ResourceFinder &rf){
  * Yarp respond method
  */
 bool Predictor::respond(const Bottle& command, Bottle& reply) {
+  
+    bool file_learning, test_train;
+  
+    file_learning =  command.get(0).asString().find("FILE") != std::string::npos;
+    test_train =  command.get(1).asString().find("TRAIN") != std::string::npos;
+    
+    if(command.get(0).asString().find("RESET") != std::string::npos){
+	    resetNodes();
+	    assignRandomWeights();
+	    iterations = 0;
+    }
+    
+    if(file_learning && command.get(4).asString().find(".csv") != std::string::npos){
+	inO = new std::ofstream("../Predictor/Data/in"+command.get(4).asString(), std::ofstream::out);
+	outO = new std::ofstream("../Predictor/Data/out"+command.get(4).asString(), std::ofstream::out);
+	EmO = new std::ofstream("../Predictor/Data/Em"+command.get(4).asString(), std::ofstream::out);
+    }
+    
+    if(file_learning){
+	  openFile(command.get(2).asString(), command.get(3).asInt(), test_train);
+    }
+	
+    reply.clear();
+    reply.addString("ACK");
       
     return true;
+}
+
+void Predictor::measurePE(){
+	double err = 0.0;
+	int counter = 0;
+	
+	
+	//Measure errors (visual outputs only)
+	for(int i = 0; i < (outputNeurons - motorNeurons - 6); i++){ 
+		err += abs(target(i) - actual(i));
+		counter++;
+	} // i		
+	//Measure errors (visual outputs only)
+	/*for(int i = (outputNeurons - motorNeurons - 2); i < (outputNeurons - motorNeurons); i++){ 
+		err += abs(target(i) - actual(i));
+		counter++;
+	} // i		*/
+	
+	//Measure average error (visual outputs only)
+	averageError = (double)err/(double)counter;
+	
+	//Add new error value ot the sliding window
+	Em.push_back(averageError);
+	if(Em.size() > DELTA){
+		Em.pop_front();
+	}
+	
+	//Mean error (sliding window size DELTA)
+	double Em_t = 0;
+	for(auto i: Em){
+		Em_t += i;
+	}
+	
+	//Ouput value to the file
+	*EmO << (Em_t/Em.size()) << endl;
+	      
 }
 
 
@@ -220,13 +281,11 @@ bool Predictor::respond(const Bottle& command, Bottle& reply) {
  * Train the network
  */
 void Predictor::ElmanNetwork(){
-      double err, mse;
-      int counter = 0;
       bool sameInput = true;
 
       //Test is the input is repeted
       for(int i = 0; i <= (inputNeurons - 1); i++){
-		if(sampleInput(1, i) != sampleInput(0, i)){
+		if(nextInput(i) != nextTarget(i) && nextInput(i) != 0){
 			sameInput = false;
 			break;
 		}
@@ -240,39 +299,23 @@ void Predictor::ElmanNetwork(){
 		    } // i
 		} else {
 		    for(int i = 0; i <= (inputNeurons - 1); i++){
-			inputs(i) = sampleInput(1, i);
+			inputs(i) = nextInput(i);
 		    } // i
 		}
 		
 		for(int i = 0; i <= (inputNeurons - 1); i++){
-		    target(i) = sampleInput(0, i);
+		    target(i) = nextTarget(i);
 		} // i
 		//}
 		
 
 		feedForward();
-		err = 0.0;
-		mse = 0.0;
-		for(int i = 0; i <= (inputNeurons - 1); i++){ 
-		    if(!std::isnan(target(i))){
-			    err += abs(target(i) - actual(i));
-			    mse += pow(target(i) - actual(i), 2);
-			    //MEas square error for each output
-			    *mseO << pow(target(i) - actual(i), 2) << "\t";
-			    counter++;
-		    }else{
-			    *mseO << "NaN" << "\t";
-		    }
-		} // i		
 		
-		*mseO<<endl;
-		
-		//Average error
-		*errO<<(double)err/counter<<endl;
+		measurePE();
 		
 		backPropagate();
 		
-	        cout << "Iterations = " << iterations << endl;
+	        //cout << "Iterations = " << iterations << endl;
 		iterations += 1;
 	}
 }
@@ -286,7 +329,7 @@ void Predictor::testNetwork(){
 	//for(int test = 0; test <= maxTests; test++){
 	    
 	for(int i = 0; i <= (inputNeurons - 1); i++){
-	      if(sampleInput(1, i) != sampleInput(0, i)){
+		if(nextInput(i) != nextTarget(i) && nextInput(i) != 0){
 		      sameInput = false;
 		      break;
 	      }
@@ -294,30 +337,32 @@ void Predictor::testNetwork(){
 	if(!sameInput){
 	      //Enter Beginning string.
 	      for(int i = 0; i <= (inputNeurons - 1); i++){
-		  inputs(i) = (double)sampleInput(1, i);
+		  inputs(i) = (double)nextInput(i);
+	      } // i
+		
+	      for(int i = 0; i <= (inputNeurons - 1); i++){
+		  target(i) = nextTarget(i);
 	      } // i
 
-	      //loop to predict step t+i
-	      *inO<<testIter<< "\t";
-	      *outO<<testIter<< "\t";
-	      for(int i = 0; i < 1; i++){
-		      feedForward();
-		      for(int i = 0; i <= (inputNeurons - 1); i++){
-			  *inO << inputs(i) << "\t";
-		      }
-		      *inO << endl;
-		      
-		      for(int i = 0; i <= (inputNeurons - 1); i++){
-			  *outO << actual(i) << "\t";
-		      } // i
-		      *outO << endl;
-		      
-		    //Output becomes input
-		    for(int i = 0; i <= (inputNeurons - 1); i++){
-			inputs(i) = actual(i);
-		    } // i
-
+	      *inO<<testIter<< ",";
+	      *outO<<testIter<< ",";
+	      
+	      feedForward();
+	      
+	      measurePE();
+	      
+	      //Save inputs
+	      for(int i = 0; i <= (inputNeurons - 1); i++){
+		  *inO << inputs(i) << ",";
 	      }
+	      *inO << endl;
+	      
+	      //Save outputs
+	      for(int i = 0; i <= (inputNeurons - 1); i++){
+		  *outO << actual(i) << ",";
+	      } // i
+	      *outO << endl;
+	      
 	      testIter++;
 	}
 //     cout<<"Predicted output is: "<<predicted<<endl;
@@ -330,8 +375,8 @@ void Predictor::testNetwork(){
 void Predictor::resetNodes(){
       
     for(int in = 0; in <= (inputNeurons - 1); in++){
-	    sampleInput(0, in) = 0;
-	    sampleInput(1, in) = 0;
+	    nextTarget(in) = 0;
+	    nextInput(in) = 0;
     }
     
     for(int out = 0; out <= (outputNeurons - 1); out++){
@@ -357,35 +402,35 @@ void Predictor::feedForward(){
     //Calculate input and context connections to hidden layer.
     for(int hid = 0; hid <= (hiddenNeurons - 1); hid++){
         sum = 0.0;
+	
         //from input to hidden...
         for(int inp = 0; inp <= (inputNeurons - 1); inp++){
-	    if(!std::isnan(inputs(inp))){
 		    sum += inputs(inp) * wih(inp, hid);
-    //  		cout<<"Error = "<<target(out)<<endl;
-	    }else{
-		    sum+= 0;
-    // 		cout<<"no backPropagate for out "<<out<<endl;
-	    }
         } // inp
+        
         //from context to hidden...
         for(int con = 0; con <= (contextNeurons - 1); con++){
             sum += context(con) * wch(con, hid);
         } // con
+        
         //Add in bias.
-        sum += wih(inputNeurons, hid);
-        sum += wch(contextNeurons, hid);
+       // sum += wih(inputNeurons, hid);
+       // sum += wch(contextNeurons, hid);
+	
         hidden(hid) = sigmoid(sum);
     } // hid
 
     //Calculate the hidden to output layer.
     for(int out = 0; out <= (outputNeurons - 1); out++){
         sum = 0.0;
+	
         for(int hid = 0; hid <= (hiddenNeurons - 1); hid++){
             sum += hidden(hid) * who(hid, out);
         } // hid
 
         //Add in bias.
-        sum += who(hiddenNeurons, out);
+        //sum += who(hiddenNeurons, out);
+	
         actual(out)= sigmoid(sum);
     } // out
 
@@ -401,41 +446,46 @@ void Predictor::feedForward(){
  * Train the weight using backpropagation through time
  */
 void Predictor::backPropagate(){
-
+     
     //Calculate the output layer error (step 3 for output cell).
     for(int out = 0; out <= (outputNeurons - 1); out++){
-	if(!std::isnan(target(out))){
-		erro(out)= (target(out)- actual(out)) * sigmoidDerivative(actual(out));
-//  		cout<<"Error = "<<target(out)<<endl;
-	}else{
-		erro(out) = 0;
-// 		cout<<"no backPropagate for out "<<out<<endl;
-	}
+	  if(target(out) != -1)
+		  erro(out)= (target(out)- actual(out)) * sigmoidDerivative(actual(out));
+	  else
+		  erro(out) = 0;
     } // out
 
     //Calculate the hidden layer error (step 3 for hidden cell).
     for(int hid = 0; hid <= (hiddenNeurons - 1); hid++){
         errh(hid)= 0.0;
+	
         for(int out = 0; out <= (outputNeurons - 1); out++){
             errh(hid)+= erro(out)* who(hid, out);
         } // out
+        
         errh(hid)*= sigmoidDerivative(hidden(hid));
     } // hid
 
     //Update the weights for the output layer (step 4).
     for(int out = 0; out <= (outputNeurons - 1); out++){
+      
         for(int hid = 0; hid <= (hiddenNeurons - 1); hid++){
+	  
             who(hid, out)+= (learnRate * erro(out)* hidden(hid));
         } // hid
+        
         //Update the bias.
         who(hiddenNeurons, out)+= (learnRate * erro(out));
     } // out
 
     //Update the weights for the hidden layer (step 4).
     for(int hid = 0; hid <= (hiddenNeurons - 1); hid++){
+      
         for(int inp = 0; inp <= (inputNeurons - 1); inp++){
-            wih(inp, hid)+= (learnRate * errh(hid)* inputs(inp));
+	      if(target(inp) != -1)
+		wih(inp, hid)+= (learnRate * errh(hid)* inputs(inp));
         } // inp
+        
         //Update the bias.
         wih(inputNeurons, hid)+= (learnRate * errh(hid));
     } // hid
@@ -465,7 +515,7 @@ void Predictor::assignRandomWeights(){
     for(int hid = 0; hid <= hiddenNeurons; hid++){
         for(int out = 0; out <= (outputNeurons - 1); out++){
             //Assign a weight value of 0 to the output weight
-            who(hid, out)= 0;
+            who(hid, out)= -0.5 + double(rand()/(RAND_MAX + 1.0));
         } // out
     } // hid
 
@@ -473,7 +523,7 @@ void Predictor::assignRandomWeights(){
     for(int out = 0; out <= outputNeurons; out++){
         for(int con = 0; con <= (contextNeurons - 1); con++){
             //These are all fixed weights set to 0.5
-            whc(out, con)= 0.5;
+            whc(out, con)= -0.5 + double(rand()/(RAND_MAX + 1.0));
         } // con
     } // out
     
@@ -481,13 +531,12 @@ void Predictor::assignRandomWeights(){
 
 /* Called periodically every getPeriod() seconds */
 bool Predictor::updateModule() {
-	
     return true;
 }
 
 double Predictor::getPeriod() {
     /* module periodicity (seconds), called implicitly by myModule */    
-    return 0.05;
+    return 0.50;
 }
 
 bool Predictor::interruptModule() {
@@ -496,7 +545,7 @@ bool Predictor::interruptModule() {
 
 bool Predictor::close() {
 	
-    errO->close();
+    EmO->close();
     inO->close();
     outO->close();
     cout<<"Module closing"<<endl;
