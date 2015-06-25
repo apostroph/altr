@@ -26,9 +26,9 @@ simpleTrackingModule::simpleTrackingModule():
 sL(100), sH(255), vL(20), vH(255), hueL(0), hueH(180), medianBlurV(6), open(1), close(4)
 {
 	
-	initBlobDetector("../RGB_tracker/src/initialization_files/blobDetector.ini");
+	initBlobDetector("/home/jimmy/programs/ros/catkin_ws/src/scene_recognition/src/initialization_files/blobDetector.ini");
 		
-	namedWindow("RGB2", CV_WINDOW_AUTOSIZE+WINDOW_OPENGL);
+	//namedWindow("RGB2", CV_WINDOW_AUTOSIZE+WINDOW_OPENGL);
 	
 	timeStep = 0;
 }
@@ -63,10 +63,11 @@ void simpleTrackingModule::newImage(cv::Mat RGB, cv::Mat depth){
 		thresholdF(smallImage, smallImageGray);	
 		
 // 		if(timeStep > 0)
-// 			motionFilter(pastImage, RGBsmall);
+
 		
 		//The blobs are detected
 		blobDetector(smallImageGray);
+		
 		
 		for(int count = 0; count < keypoints.size(); count ++){
 			bool assigned = false;
@@ -135,6 +136,7 @@ void simpleTrackingModule::thresholdF(Mat src, Mat &dst){
 	
 	Mat noSkin = cv::Mat(Size((src.cols), (src.rows)), CV_8UC3);  
 	Mat colorBlobs = cv::Mat(Size((src.cols), (src.rows)), CV_8UC3);  
+	
 	skinRemvoal(src, noSkin);//We remove the skin color
 	
 	//The matrice pixels are convert from BGR to HSV
@@ -183,8 +185,6 @@ void simpleTrackingModule::thresholdF(Mat src, Mat &dst){
 		drawContours(dst, contours, i, Scalar(0), 3);
 	}
 	
-	//motionFilter(dst, dst);
-	
 	imshow("Gray image", dst);
 	
 }
@@ -210,50 +210,6 @@ void simpleTrackingModule::skinRemvoal(Mat src, Mat &dst){//const unsigned char 
 	}
 }
 
-/** Displays only the motion region of the image
- 
- * */
-void simpleTrackingModule::motionFilter(Mat src1, Mat src2){
-	
-	vector<Point2f> track_point1;
-	vector<Point2f> track_point2;
-	Mat _src1, _src2;
-	Mat display = cv::Mat(Size(src1.cols, src1.rows), CV_8UC3);
-	display = Scalar(0,0,0);
-	
-	
-// 	cvtColor(src1, _src1, CV_BGR2GRAY);
-// 	cvtColor(src2, _src2, CV_BGR2GRAY);
-	
-	src2.copyTo(_src2);
-	src1.copyTo(_src1);
-	
-	vector<uchar> status;
-	vector<float> err;
-	
-	if(!_src1.empty() && _src1.rows != 0){
-	
-		goodFeaturesToTrack(_src1, track_point1, MAX_TRACK_NB, 0.005, 5, Mat(), 3, 0, 0.04);
-		goodFeaturesToTrack(_src2, track_point2, MAX_TRACK_NB, 0.005, 5, Mat(), 3, 0, 0.04);
-	
-		if(track_point1.size() > 0){
-			calcOpticalFlowPyrLK(_src1, _src2, track_point1, track_point2, status, err);
-			
-			
-			for (auto c : status){
-				if(!status[c]);
-					continue;
-				
-				circle( display, track_point1[c], 5, Scalar(0,255,0), -1);
-				
-			}
-		}
-	}
-	
-	imshow("Flow", display);
-	
-}
-
 /** getBlobColor
  * extract the mean Hue color of an area
  * In:
@@ -261,12 +217,16 @@ void simpleTrackingModule::motionFilter(Mat src1, Mat src2){
  * */
 double simpleTrackingModule::getBlobColor(Mat imgBlob, Mat imgRGB, double size, Point position){
 	Mat newImg = cv::Mat(Size(imgBlob.cols, imgBlob.rows), CV_8UC3);
+	Mat imgMasked = cv::Mat(Size(imgBlob.cols, imgBlob.rows), CV_8UC3);
 	resize(imgRGB, newImg, newImg.size());
-	cvtColor(newImg, newImg, CV_RGB2HSV);
+	
+	newImg.copyTo(imgMasked, imgBlob); 
+      
+	imshow("ROI", imgMasked);
 	
 	double meanColor = -1;	
-	if((position.x - size) > 0 && (position.y - size) > 0 && (position.x+size) < imgRGB.cols && (position.y+size) < imgRGB.rows){
-	      Mat roi(imgRGB, Rect(position.x - size, position.y - size, 2*size, 2*size));
+	if((position.x - size) > 0 && (position.y - size) > 0 && (position.x+size) < imgMasked.cols && (position.y+size) < imgMasked.rows){
+	      Mat roi(imgMasked, Rect(position.x - size, position.y - size, 2*size, 2*size));
 	      meanColor = getMeanColor(roi);
 	}
 	
@@ -281,6 +241,7 @@ double simpleTrackingModule::getBlobColor(Mat imgBlob, Mat imgRGB, double size, 
 double simpleTrackingModule::getMeanColor(Mat ROI){
       double meanColor = 0;
       double nbValue = 0;
+      
       for(int c = 0; c < ROI.cols; c++){
 		for(int r = 0; r < ROI.rows; r++){
 			Vec3b pixelColor = ROI.at<Vec3b>(Point(c,r));

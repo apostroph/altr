@@ -32,7 +32,7 @@ bool trackingC::isRecognized(Point position, double color, double size, Mat dst)
 	  (position.y > (this->position.y - searchRectangle.height)) && 
 	  (position.y < (this->position.y + searchRectangle.height))))){	  
 	  
-		if(((color > (meanColor-5)) && (color < (meanColor+5)))){
+		if(((color > (meanColor-15)) && (color < (meanColor+15)))){
 		    tracked = true;
 		    if(!acquired){
 			    recognitionThreshold ++;
